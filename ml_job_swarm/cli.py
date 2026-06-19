@@ -39,11 +39,77 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Directory containing <source_type>_jobs.json fixture adapters",
     )
 
+    migrate = subparsers.add_parser(
+        "migrate-hosted",
+        help="Migrate Railway SQLite data and resume files to Postgres + Storage",
+    )
+    migrate.add_argument(
+        "--source-db",
+        required=True,
+        help="SQLite database path exported from the hosted volume",
+    )
+    migrate.add_argument(
+        "--resume-asset-dir",
+        help="Directory containing local resume files from the hosted volume",
+    )
+    migrate.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate source counts and resume checksums without writing",
+    )
+
     args = parser.parse_args(argv)
     if args.command == "refresh":
         return _refresh(args)
+    if args.command == "migrate-hosted":
+        return _migrate_hosted(args)
     parser.error(f"Unknown command: {args.command}")
     return 2
+
+
+def _migrate_hosted(args: argparse.Namespace) -> int:
+    from ml_job_swarm.hosted_migration import HostedMigrationError, migrate_sqlite_to_postgres
+
+    try:
+        report = migrate_sqlite_to_postgres(
+            source_db=Path(args.source_db),
+            dry_run=bool(args.dry_run),
+            resume_asset_dir=args.resume_asset_dir,
+        )
+    except HostedMigrationError as exc:
+        print(json.dumps({"status": "error", "error": str(exc)}, sort_keys=True))
+        return 1
+
+    payload = {
+        "status": report.status,
+        "dry_run": report.dry_run,
+        "source_db": report.source_db,
+        "tables": [
+            {
+                "table": summary.table,
+                "source_rows": summary.source_rows,
+                "copied_rows": summary.copied_rows,
+                "dry_run": summary.dry_run,
+            }
+            for summary in report.tables
+        ],
+        "resumes": [
+            {
+                "resume_asset_id": summary.resume_asset_id,
+                "source_uri": summary.source_uri,
+                "destination_uri": summary.destination_uri,
+                "sha256": summary.sha256,
+                "byte_size": summary.byte_size,
+                "dry_run": summary.dry_run,
+            }
+            for summary in report.resumes
+        ],
+        "checksums": report.checksums,
+    }
+    print(json.dumps(payload, sort_keys=True))
+    if not report.dry_run and not report.checksums.get("row_count_matches", False):
+        return 1
+    return 0
 
 
 def _refresh(args: argparse.Namespace) -> int:
