@@ -529,13 +529,16 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         search: str = "",
         import_status: str | None = None,
     ) -> HTMLResponse:
+        user_id = _authenticated_user_id(request)
         return _render(
             request,
             "connections.html",
-            connection_count=linkedin_connection_count(conn),
-            latest_import=latest_import_summary(conn),
-            grouped_companies=grouped_connections_by_company(conn, search=search),
-            matched_catalog=matched_catalog_companies(conn),
+            connection_count=linkedin_connection_count(conn, user_id=user_id),
+            latest_import=latest_import_summary(conn, user_id=user_id),
+            grouped_companies=grouped_connections_by_company(
+                conn, search=search, user_id=user_id
+            ),
+            matched_catalog=matched_catalog_companies(conn, user_id=user_id),
             search_query=search,
             import_status=import_status,
         )
@@ -557,6 +560,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
                 conn,
                 connections=parsed,
                 filename=connections_file.filename or "Connections.csv",
+                user_id=_authenticated_user_id(request),
             )
         except (UnicodeDecodeError, ValueError):
             return RedirectResponse(
@@ -581,7 +585,8 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         active_decision_filter = _dashboard_decision_filter(decision_filter)
         active_connection_filter = _dashboard_connection_filter(connection_filter)
         catalog_refreshed_at = _latest_succeeded_run_finished_at(conn)
-        connection_count = linkedin_connection_count(conn)
+        user_id = _authenticated_user_id(request)
+        connection_count = linkedin_connection_count(conn, user_id=user_id)
         if target_profile_id is None:
             return _render(
                 request,
@@ -610,6 +615,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
             connections_by_company_id = connections_for_company_ids(
                 conn,
                 [company.company_id for company in companies],
+                user_id=user_id,
             )
             companies = _filter_companies_by_connections(
                 companies,
@@ -688,7 +694,11 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
                 target_profile_id=target_profile_id,
             ),
             referral_contacts=_referral_contacts_for_job(conn, job_id=job_id),
-            linkedin_connections=_linkedin_connections_for_job(conn, job_id=job_id),
+            linkedin_connections=_linkedin_connections_for_job(
+                conn,
+                job_id=job_id,
+                user_id=_authenticated_user_id(request),
+            ),
             target_profile_id=target_profile_id,
         )
 
@@ -1736,6 +1746,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
             update_resume_suggestion_status=_update_resume_suggestion_status,
             review_company_source=review_company_source,
             refresh_source=refresh_source,
+            get_authenticated_user_id=_authenticated_user_id,
         )
     )
 
@@ -2903,11 +2914,16 @@ def _sort_companies_by_connections(
     )
 
 
-def _linkedin_connections_for_job(conn, *, job_id: int) -> list[dict[str, object]]:
+def _linkedin_connections_for_job(
+    conn,
+    *,
+    job_id: int,
+    user_id: str | None = None,
+) -> list[dict[str, object]]:
     company_id = _company_id_for_job(conn, job_id)
     if company_id is None:
         return []
-    return connections_for_company_id(conn, company_id)
+    return connections_for_company_id(conn, company_id, user_id=user_id)
 
 
 def _filter_companies_by_decision(

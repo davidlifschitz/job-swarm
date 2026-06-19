@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from pydantic import BaseModel, ValidationError
 
 from ml_job_swarm.ingest import refresh_due_sources, refresh_source
@@ -174,6 +174,8 @@ def _require_supported_resume(resume: UploadFile) -> None:
 def _rules_preview_company_groups(
     conn: sqlite3.Connection,
     previews: list[dict[str, object]],
+    *,
+    user_id: str | None = None,
 ) -> list[dict[str, object]]:
     grouped: dict[str, list[dict[str, object]]] = {}
     for preview in previews:
@@ -192,6 +194,7 @@ def _rules_preview_company_groups(
     connections_by_company_id = connections_for_company_ids(
         conn,
         list(company_ids.values()),
+        user_id=user_id,
     )
     results: list[dict[str, object]] = []
     for company_name, jobs in sorted(grouped.items()):
@@ -292,6 +295,7 @@ def create_api_v1_router(
     update_resume_suggestion_status: Callable[..., bool],
     review_company_source: Callable[..., dict[str, object]],
     refresh_source: Callable[..., object],
+    get_authenticated_user_id: Callable[[Request], str | None],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1", tags=["api-v1"])
 
@@ -300,12 +304,15 @@ def create_api_v1_router(
         return llm_usage_summary(conn)
 
     @router.get("/health")
-    def health() -> dict[str, object]:
+    def health(request: Request) -> dict[str, object]:
         profile_count = conn.execute("SELECT COUNT(*) AS count FROM target_profiles").fetchone()
         job_count = conn.execute("SELECT COUNT(*) AS count FROM jobs").fetchone()
         return {
             "status": "ok",
-            "connection_count": linkedin_connection_count(conn),
+            "connection_count": linkedin_connection_count(
+                conn,
+                user_id=get_authenticated_user_id(request),
+            ),
             "fit_review_available": get_fit_gate_client() is not None,
             "profile_count": int(profile_count["count"]) if profile_count else 0,
             "job_count": int(job_count["count"]) if job_count else 0,
@@ -587,10 +594,12 @@ def create_api_v1_router(
 
     @router.get("/dashboard")
     def dashboard(
+        request: Request,
         target_profile_id: int,
         decision_filter: str = "all",
         connection_filter: str = "all",
     ) -> dict[str, object]:
+        user_id = get_authenticated_user_id(request)
         active_decision_filter = dashboard_decision_filter(decision_filter)
         active_connection_filter = dashboard_connection_filter(connection_filter)
         try:
@@ -601,6 +610,7 @@ def create_api_v1_router(
             connections_by_company_id = connections_for_company_ids(
                 conn,
                 [company.company_id for company in companies],
+                user_id=user_id,
             )
             companies = filter_companies_by_connections(
                 companies,
@@ -621,7 +631,7 @@ def create_api_v1_router(
             "target_profile_id": target_profile_id,
             "decision_filter": active_decision_filter,
             "connection_filter": active_connection_filter,
-            "connection_count": linkedin_connection_count(conn),
+            "connection_count": linkedin_connection_count(conn, user_id=user_id),
             "catalog_refreshed_at": latest_succeeded_run_finished_at(conn),
             "fit_review_available": get_fit_gate_client() is not None,
             "profile_summary": summary,
@@ -635,6 +645,7 @@ def create_api_v1_router(
             "rules_preview_companies": _rules_preview_company_groups(
                 conn,
                 _serialize(preview_jobs),
+                user_id=user_id,
             ),
             "referral_network": [
                 {
@@ -642,7 +653,7 @@ def create_api_v1_router(
                     "company_name": match.company_name,
                     "connections": list(match.connections),
                 }
-                for match in matched_catalog_companies(conn)
+                for match in matched_catalog_companies(conn, user_id=user_id)
             ],
             "unreviewed_jobs": unreviewed_job_rows(conn, target_profile_id),
         }
@@ -718,7 +729,12 @@ def create_api_v1_router(
         }
 
     @router.get("/jobs/{job_id}")
-    def get_job(job_id: int, target_profile_id: int) -> dict[str, object]:
+    def get_job(
+        request: Request,
+        job_id: int,
+        target_profile_id: int,
+    ) -> dict[str, object]:
+        user_id = get_authenticated_user_id(request)
         detail = job_detail(conn, job_id, target_profile_id)
         if detail is None:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -728,7 +744,7 @@ def create_api_v1_router(
         ).fetchone()
         company_id = int(company_id_row["company_id"]) if company_id_row else None
         linkedin = (
-            connections_for_company_id(conn, company_id)
+            connections_for_company_id(conn, company_id, user_id=user_id)
             if company_id is not None
             else []
         )
@@ -899,24 +915,32 @@ def create_api_v1_router(
         return {"status": "ok"}
 
     @router.get("/connections")
-    def connections(search: str = "") -> dict[str, object]:
+    def connections(request: Request, search: str = "") -> dict[str, object]:
+        user_id = get_authenticated_user_id(request)
         return {
-            "connection_count": linkedin_connection_count(conn),
-            "latest_import": latest_import_summary(conn),
-            "grouped_companies": grouped_connections_by_company(conn, search=search),
+            "connection_count": linkedin_connection_count(conn, user_id=user_id),
+            "latest_import": latest_import_summary(conn, user_id=user_id),
+            "grouped_companies": grouped_connections_by_company(
+                conn, search=search, user_id=user_id
+            ),
             "matched_catalog": [
                 {
                     "company_id": match.company_id,
                     "company_name": match.company_name,
                     "connections": list(match.connections),
                 }
-                for match in matched_catalog_companies(conn)
+                for match in matched_catalog_companies(conn, user_id=user_id)
             ],
-            "connections": list_linkedin_connections(conn, search=search),
+            "connections": list_linkedin_connections(
+                conn, search=search, user_id=user_id
+            ),
         }
 
     @router.post("/connections/import")
-    async def import_connections(connections_file: UploadFile = File(...)) -> dict[str, object]:
+    async def import_connections(
+        request: Request,
+        connections_file: UploadFile = File(...),
+    ) -> dict[str, object]:
         content = await connections_file.read()
         if not content:
             raise HTTPException(status_code=400, detail="Uploaded file was empty")
@@ -926,6 +950,7 @@ def create_api_v1_router(
                 conn,
                 connections=parsed,
                 filename=connections_file.filename or "Connections.csv",
+                user_id=get_authenticated_user_id(request),
             )
         except (UnicodeDecodeError, ValueError) as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

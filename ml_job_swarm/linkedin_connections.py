@@ -107,23 +107,41 @@ def normalize_connection_company(name: str) -> str:
     return _WS.sub(" ", text).strip()
 
 
+def _storage_user_id(user_id: str | None) -> str:
+    return user_id or ""
+
+
+def _append_user_scope(
+    clauses: list[str],
+    params: list[object],
+    *,
+    user_id: str | None,
+) -> None:
+    if user_id is not None:
+        clauses.append("user_id = ?")
+        params.append(user_id)
+
+
 def import_linkedin_connections(
     conn: sqlite3.Connection,
     *,
     connections: list[LinkedInConnection],
     filename: str = "",
+    user_id: str | None = None,
 ) -> LinkedInImportResult:
     now = datetime.now(UTC).isoformat()
+    scoped_user_id = _storage_user_id(user_id)
     with conn:
         cursor = conn.execute(
             """
             INSERT INTO linkedin_connection_imports (
+              user_id,
               filename,
               connection_count
             )
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
             """,
-            (filename, len(connections)),
+            (scoped_user_id, filename, len(connections)),
         )
         import_id = int(cursor.lastrowid)
         imported = 0
@@ -135,12 +153,17 @@ def import_linkedin_connections(
                 continue
             company_norm = normalize_connection_company(connection.company)
             existing = conn.execute(
-                "SELECT id FROM linkedin_connections WHERE profile_url = ?",
-                (connection.profile_url,),
+                """
+                SELECT id
+                FROM linkedin_connections
+                WHERE profile_url = ? AND user_id = ?
+                """,
+                (connection.profile_url, scoped_user_id),
             ).fetchone()
             conn.execute(
                 """
                 INSERT INTO linkedin_connections (
+                  user_id,
                   profile_url,
                   first_name,
                   last_name,
@@ -151,8 +174,8 @@ def import_linkedin_connections(
                   import_id,
                   updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(profile_url) DO UPDATE SET
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, profile_url) DO UPDATE SET
                   first_name = excluded.first_name,
                   last_name = excluded.last_name,
                   company = excluded.company,
@@ -163,6 +186,7 @@ def import_linkedin_connections(
                   updated_at = excluded.updated_at
                 """,
                 (
+                    scoped_user_id,
                     connection.profile_url,
                     connection.first_name,
                     connection.last_name,
@@ -186,19 +210,40 @@ def import_linkedin_connections(
     )
 
 
-def linkedin_connection_count(conn: sqlite3.Connection) -> int:
-    row = conn.execute("SELECT COUNT(*) AS count FROM linkedin_connections").fetchone()
+def linkedin_connection_count(
+    conn: sqlite3.Connection,
+    *,
+    user_id: str | None = None,
+) -> int:
+    clauses: list[str] = []
+    params: list[object] = []
+    _append_user_scope(clauses, params, user_id=user_id)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    row = conn.execute(
+        f"SELECT COUNT(*) AS count FROM linkedin_connections{where}",
+        params,
+    ).fetchone()
     return int(row["count"] if row else 0)
 
 
-def latest_import_summary(conn: sqlite3.Connection) -> dict[str, object] | None:
+def latest_import_summary(
+    conn: sqlite3.Connection,
+    *,
+    user_id: str | None = None,
+) -> dict[str, object] | None:
+    clauses: list[str] = []
+    params: list[object] = []
+    _append_user_scope(clauses, params, user_id=user_id)
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
     row = conn.execute(
-        """
+        f"""
         SELECT id, filename, connection_count, created_at
         FROM linkedin_connection_imports
+        {where}
         ORDER BY id DESC
         LIMIT 1
-        """
+        """,
+        params,
     ).fetchone()
     return dict(row) if row else None
 
@@ -207,8 +252,25 @@ def list_linkedin_connections(
     conn: sqlite3.Connection,
     *,
     search: str = "",
+    user_id: str | None = None,
 ) -> list[dict[str, object]]:
-    query = """
+    clauses: list[str] = []
+    params: list[object] = []
+    _append_user_scope(clauses, params, user_id=user_id)
+    if search.strip():
+        needle = f"%{search.strip().casefold()}%"
+        clauses.append(
+            """
+            (
+              lower(first_name || ' ' || last_name) LIKE ?
+              OR lower(company) LIKE ?
+              OR lower(position) LIKE ?
+            )
+            """
+        )
+        params.extend([needle, needle, needle])
+    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+    query = f"""
         SELECT
           id,
           profile_url,
@@ -219,17 +281,9 @@ def list_linkedin_connections(
           position,
           connected_on
         FROM linkedin_connections
+        {where}
+        ORDER BY company, last_name, first_name, id
     """
-    params: tuple[object, ...] = ()
-    if search.strip():
-        needle = f"%{search.strip().casefold()}%"
-        query += """
-        WHERE lower(first_name || ' ' || last_name) LIKE ?
-           OR lower(company) LIKE ?
-           OR lower(position) LIKE ?
-        """
-        params = (needle, needle, needle)
-    query += " ORDER BY company, last_name, first_name, id"
     return [dict(row) for row in conn.execute(query, params).fetchall()]
 
 
@@ -237,9 +291,10 @@ def grouped_connections_by_company(
     conn: sqlite3.Connection,
     *,
     search: str = "",
+    user_id: str | None = None,
 ) -> list[dict[str, object]]:
     grouped: dict[str, dict[str, object]] = {}
-    for row in list_linkedin_connections(conn, search=search):
+    for row in list_linkedin_connections(conn, search=search, user_id=user_id):
         company = str(row.get("company") or "Not specified / freelance")
         bucket = grouped.setdefault(
             company,
@@ -313,6 +368,8 @@ def connection_matches_company(
 def connections_for_company_id(
     conn: sqlite3.Connection,
     company_id: int,
+    *,
+    user_id: str | None = None,
 ) -> list[dict[str, object]]:
     catalog = _catalog_company_terms(conn)
     company = next(
@@ -321,12 +378,18 @@ def connections_for_company_id(
     )
     if company is None:
         return []
-    return _connections_matching_terms(conn, company_terms=company["terms"])
+    return _connections_matching_terms(
+        conn,
+        company_terms=company["terms"],
+        user_id=user_id,
+    )
 
 
 def connections_for_company_ids(
     conn: sqlite3.Connection,
     company_ids: list[int],
+    *,
+    user_id: str | None = None,
 ) -> dict[int, list[dict[str, object]]]:
     if not company_ids:
         return {}
@@ -335,7 +398,7 @@ def connections_for_company_ids(
         for item in _catalog_company_terms(conn)
         if int(item["company_id"]) in company_ids
     }
-    all_connections = list_linkedin_connections(conn)
+    all_connections = list_linkedin_connections(conn, user_id=user_id)
     grouped: dict[int, list[dict[str, object]]] = {
         company_id: [] for company_id in company_ids
     }
@@ -359,9 +422,11 @@ def connections_for_company_ids(
 
 def matched_catalog_companies(
     conn: sqlite3.Connection,
+    *,
+    user_id: str | None = None,
 ) -> list[CompanyConnectionMatch]:
     catalog = _catalog_company_terms(conn)
-    all_connections = list_linkedin_connections(conn)
+    all_connections = list_linkedin_connections(conn, user_id=user_id)
     matches: list[CompanyConnectionMatch] = []
     for company in catalog:
         matched = [
@@ -389,10 +454,11 @@ def _connections_matching_terms(
     conn: sqlite3.Connection,
     *,
     company_terms: tuple[str, ...],
+    user_id: str | None = None,
 ) -> list[dict[str, object]]:
     rows = [
         row
-        for row in list_linkedin_connections(conn)
+        for row in list_linkedin_connections(conn, user_id=user_id)
         if connection_matches_company(
             str(row.get("company_norm") or ""),
             company_terms=company_terms,

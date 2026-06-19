@@ -310,6 +310,7 @@ CREATE TABLE IF NOT EXISTS referral_contacts (
 
 CREATE TABLE IF NOT EXISTS linkedin_connection_imports (
   id INTEGER PRIMARY KEY,
+  user_id TEXT,
   filename TEXT NOT NULL DEFAULT '',
   connection_count INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -317,7 +318,8 @@ CREATE TABLE IF NOT EXISTS linkedin_connection_imports (
 
 CREATE TABLE IF NOT EXISTS linkedin_connections (
   id INTEGER PRIMARY KEY,
-  profile_url TEXT NOT NULL UNIQUE,
+  user_id TEXT,
+  profile_url TEXT NOT NULL,
   first_name TEXT NOT NULL DEFAULT '',
   last_name TEXT NOT NULL DEFAULT '',
   company TEXT NOT NULL DEFAULT '',
@@ -326,7 +328,8 @@ CREATE TABLE IF NOT EXISTS linkedin_connections (
   connected_on TEXT NOT NULL DEFAULT '',
   import_id INTEGER REFERENCES linkedin_connection_imports(id) ON DELETE SET NULL,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, profile_url)
 );
 
 CREATE INDEX IF NOT EXISTS idx_linkedin_connections_company_norm
@@ -371,7 +374,76 @@ def init_db(conn: sqlite3.Connection) -> None:
         "INTEGER NOT NULL DEFAULT 0",
     )
     _ensure_column(conn, "target_profiles", "user_id", "TEXT")
+    _migrate_linkedin_connections_user_scope(conn)
     conn.commit()
+
+
+def _migrate_linkedin_connections_user_scope(conn: sqlite3.Connection) -> None:
+    _ensure_column(conn, "linkedin_connection_imports", "user_id", "TEXT")
+    _ensure_column(conn, "linkedin_connections", "user_id", "TEXT")
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'linkedin_connections'
+          AND sql LIKE '%UNIQUE(user_id, profile_url)%'
+        """
+    ).fetchone()
+    if row is not None:
+        return
+    conn.executescript(
+        """
+        CREATE TABLE linkedin_connections__scoped (
+          id INTEGER PRIMARY KEY,
+          user_id TEXT,
+          profile_url TEXT NOT NULL,
+          first_name TEXT NOT NULL DEFAULT '',
+          last_name TEXT NOT NULL DEFAULT '',
+          company TEXT NOT NULL DEFAULT '',
+          company_norm TEXT NOT NULL DEFAULT '',
+          position TEXT NOT NULL DEFAULT '',
+          connected_on TEXT NOT NULL DEFAULT '',
+          import_id INTEGER REFERENCES linkedin_connection_imports(id) ON DELETE SET NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, profile_url)
+        );
+        INSERT INTO linkedin_connections__scoped (
+          id,
+          user_id,
+          profile_url,
+          first_name,
+          last_name,
+          company,
+          company_norm,
+          position,
+          connected_on,
+          import_id,
+          created_at,
+          updated_at
+        )
+        SELECT
+          id,
+          user_id,
+          profile_url,
+          first_name,
+          last_name,
+          company,
+          company_norm,
+          position,
+          connected_on,
+          import_id,
+          created_at,
+          updated_at
+        FROM linkedin_connections;
+        DROP TABLE linkedin_connections;
+        ALTER TABLE linkedin_connections__scoped RENAME TO linkedin_connections;
+        CREATE INDEX IF NOT EXISTS idx_linkedin_connections_company_norm
+        ON linkedin_connections(company_norm);
+        UPDATE linkedin_connections SET user_id = '' WHERE user_id IS NULL;
+        UPDATE linkedin_connection_imports SET user_id = '' WHERE user_id IS NULL;
+        """
+    )
 
 
 def table_columns(conn: sqlite3.Connection, table: str) -> set[str]:

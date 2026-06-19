@@ -112,3 +112,29 @@ def test_import_is_idempotent_on_profile_url():
     assert second.updated == 3
     assert second.imported == 0
     assert linkedin_connection_count(conn) == 3
+
+
+def test_linkedin_connections_are_scoped_by_user_id():
+    conn = connect()
+    init_db(conn)
+    connections = parse_linkedin_connections_csv(FIXTURE_CSV.read_text())
+
+    import_linkedin_connections(conn, connections=connections, user_id="user-a")
+    import_linkedin_connections(conn, connections=connections, user_id="user-b")
+
+    assert linkedin_connection_count(conn, user_id="user-a") == 3
+    assert linkedin_connection_count(conn, user_id="user-b") == 3
+    assert linkedin_connection_count(conn) == 6
+
+
+def test_import_is_idempotent_per_user():
+    conn = connect()
+    init_db(conn)
+    connections = parse_linkedin_connections_csv(FIXTURE_CSV.read_text())
+    first = import_linkedin_connections(conn, connections=connections, user_id="owner")
+    second = import_linkedin_connections(conn, connections=connections, user_id="owner")
+
+    assert first.imported == 3
+    assert second.updated == 3
+    assert second.imported == 0
+    assert linkedin_connection_count(conn, user_id="owner") == 3
