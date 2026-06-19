@@ -63,16 +63,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
       - name: Run Postgres integration tests
-        run: |
-          uv run pytest \
-            tests/test_postgres_schema.py \
-            tests/test_cloud_runtime_postgres.py \
-            tests/test_per_user_postgres.py \
-            tests/test_catalog_postgres.py \
-            tests/test_ingest_postgres.py \
-            tests/test_hosted_migration.py \
-            tests/test_hosted_cutover.py \
-            -q
+        run: uv run pytest tests/ -k "postgres or hosted_migration or hosted_cutover" -q
 
   macos-build:
     name: macos-build

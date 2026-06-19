@@ -84,16 +84,22 @@ ML_JOB_SWARM_SOURCE_DB=/path/to/jobs.db \
   ./scripts/railway-cutover.sh --dry-run
 ```
 
-3. Live migration + smoke:
+3. Live migration:
 
 ```bash
+export DATABASE_URL='postgresql://...'
 ML_JOB_SWARM_SOURCE_DB=/path/to/jobs.db \
 ML_JOB_SWARM_RESUME_ASSET_DIR=/path/to/resume-assets \
-ML_JOB_SWARM_PUBLIC_URL=https://your-app.up.railway.app \
   ./scripts/railway-cutover.sh
 ```
 
-4. Redeploy web with Phase B env vars before smoke expects `postgresql`.
+4. Redeploy web + worker with Phase B env vars on Railway.
+
+5. Post-cutover smoke:
+
+```bash
+./scripts/railway-cutover.sh --smoke-only https://your-app.up.railway.app "$ACCESS_TOKEN"
+```
 
 ### 4. Cloud worker
 

@@ -18,7 +18,7 @@ cd "${ROOT_DIR}"
 SMOKE_ONLY=0
 DRY_RUN=0
 BASE_URL=""
-TOKEN=""
+TOKEN="${ML_JOB_SWARM_ACCESS_TOKEN:-}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -81,10 +81,6 @@ if [[ "${DRY_RUN}" -eq 1 ]]; then
   exit 0
 fi
 
-PUBLIC_URL="${ML_JOB_SWARM_PUBLIC_URL:-}"
-if [[ -n "${PUBLIC_URL}" ]]; then
-  echo "==> Verifying cutover smoke at ${PUBLIC_URL}"
-  ML_JOB_SWARM_EXPECT_POSTGRES=1 ./scripts/smoke-postgres-cutover.sh "${PUBLIC_URL}" "${TOKEN:-}"
-fi
-
 echo "Cutover migration complete."
+echo "Redeploy Railway web + worker with Phase B env vars, then:"
+echo "  $0 --smoke-only \${ML_JOB_SWARM_PUBLIC_URL:-https://<app>.up.railway.app} [ACCESS_TOKEN]"

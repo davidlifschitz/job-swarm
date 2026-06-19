@@ -46,7 +46,7 @@ fi
 echo "==> Fetching API keys for project ${PROJECT_REF}"
 keys_json="$(supabase projects api-keys --project-ref "${PROJECT_REF}" -o json)"
 
-eval "$(python3 - <<'PY' "${keys_json}" "${PROJECT_REF}" "${OUT_FILE}"
+eval "$(python3 - <<'PY' "${keys_json}" "${PROJECT_REF}" "${OUT_FILE}" "${ROOT_DIR}"
 import json
 import sys
 from pathlib import Path
@@ -54,6 +54,7 @@ from pathlib import Path
 raw = sys.argv[1]
 project_ref = sys.argv[2]
 out_file = sys.argv[3]
+root_dir = Path(sys.argv[4])
 payload = json.loads(raw)
 
 # CLI returns a list or {"api_keys": [...]} depending on version.
@@ -91,7 +92,7 @@ if secret_meta:
     lines.append(f"# SUPABASE_SECRET_KEY is masked by CLI; copy full value from dashboard if needed")
     lines.append(f"SUPABASE_SECRET_KEY_REF={secret_meta}")
 
-pooler_path = Path(__file__).resolve().parent.parent / "supabase" / ".temp" / "pooler-url"
+pooler_path = root_dir / "supabase" / ".temp" / "pooler-url"
 if pooler_path.is_file():
     pooler = pooler_path.read_text(encoding="utf-8").strip()
     if pooler.startswith("postgresql://") and "@" in pooler:

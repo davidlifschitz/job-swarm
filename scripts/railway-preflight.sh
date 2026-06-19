@@ -88,6 +88,8 @@ if [[ "${PREFLIGHT_POSTGRES:-}" == "1" ]]; then
       -e PORT="$((PORT + 1))" \
       -e DATABASE_URL="${pg_url}" \
       -e SUPABASE_URL=https://example.supabase.co \
+      -e SUPABASE_ANON_KEY=preflight-anon-key \
+      -e SUPABASE_JWT_SECRET="${JWT_SECRET}" \
       -e SUPABASE_SERVICE_ROLE_KEY=preflight-service-role \
       -e ML_JOB_SWARM_RESUME_STORAGE_BUCKET=resume-assets \
       --add-host=host.docker.internal:host-gateway \
