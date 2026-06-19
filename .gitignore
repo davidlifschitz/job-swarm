@@ -23,3 +23,6 @@ MLJobSwarm-*.tar.gz
 
 # Local runtime data
 Library/
+
+# Supabase CLI link cache (machine-local)
+supabase/.temp/
