@@ -1,6 +1,6 @@
 # Tier 2 — Hosted web (Railway + Supabase)
 
-**Status: Phase A in progress** — Railway deploy artifacts and Supabase Auth gate.
+**Status: Phase A complete** — Railway deploy, Supabase Auth, volume-backed SQLite, per-user data isolation, and optional cloud worker.
 
 Public macOS installs remain Tier 1 ([tier1-macos-release.md](tier1-macos-release.md)). Tier 2 is the hosted FastAPI console and cloud runtime.
 
@@ -38,7 +38,7 @@ Public macOS installs remain Tier 1 ([tier1-macos-release.md](tier1-macos-releas
 | `ML_JOB_SWARM_PUBLIC_URL` | `https://your-app.up.railway.app` | Yes |
 | `SUPABASE_URL` | `https://xyz.supabase.co` | Yes |
 | `SUPABASE_ANON_KEY` | `eyJ...` | Yes |
-| `SUPABASE_JWT_SECRET` | `your-jwt-secret` | Yes |
+| `SUPABASE_JWT_SECRET` | `your-jwt-secret` | Legacy HS256 only |
 | `OPENROUTER_API_KEY` | `sk-or-...` | No |
 | `ML_JOB_SWARM_SEED_COMPANIES` | `data/seed_companies.json` | No |
 
@@ -48,17 +48,32 @@ Public macOS installs remain Tier 1 ([tier1-macos-release.md](tier1-macos-releas
    - `GET /dashboard` → redirects to `/auth/login`
    - Sign in → dashboard loads
 
-### 3. Optional cloud worker
+### 3. Cloud worker (recommended)
 
-Add a second Railway service (same repo/image) with start command:
+Add a second Railway service from the same repo/image:
+
+1. Mount the **same volume** at `/data` (shared SQLite queue).
+2. Set the same env vars as the web service (`ML_JOB_SWARM_DATA_DIR`, Supabase keys if needed).
+3. Override the start command:
 
 ```bash
-uv run ml-job-swarm-cloud-worker --db-path /data/jobs.db --max-runs 0
+./scripts/start-cloud-worker.sh
 ```
 
-`--max-runs 0` runs until idle in a loop (daemon mode). Or invoke `POST /api/cloud/worker/run-next` from a cron on the web service.
+`--max-runs 0` drains queued cloud runs in a loop (daemon mode). Alternatively, invoke `POST /api/cloud/worker/run-next` from a cron on the web service.
 
-### 4. Pre-deploy smoke (local)
+### 4. Per-user isolation
+
+Hosted mode scopes these records by Supabase JWT `sub`:
+
+- `target_profiles`
+- `linkedin_connections` / imports
+- `resume_assets`
+- `cloud_runs`
+
+Legacy rows imported before auth scoping have `user_id = ''` and are not visible to signed-in users — re-upload resumes and re-import `Connections.csv` after signing in.
+
+### 5. Pre-deploy smoke (local)
 
 ```bash
 ./scripts/railway-preflight.sh
@@ -66,7 +81,7 @@ uv run ml-job-swarm-cloud-worker --db-path /data/jobs.db --max-runs 0
 
 Builds the Docker image, starts a container with a temp `/data` volume, and runs `smoke-hosted.sh` against `http://127.0.0.1:18080`.
 
-### 5. Post-deploy smoke
+### 6. Post-deploy smoke
 
 ```bash
 ./scripts/smoke-hosted.sh https://your-app.up.railway.app

@@ -22,6 +22,81 @@ class ProfileAccessDenied(PermissionError):
     pass
 
 
+class ResumeAssetAccessDenied(PermissionError):
+    pass
+
+
+def storage_user_id(user_id: str | None) -> str:
+    return user_id or ""
+
+
+def upsert_resume_asset_record(
+    conn: sqlite3.Connection,
+    *,
+    user_id: str | None,
+    original_filename: str,
+    content_type: str,
+    storage_path: str,
+    sha256: str,
+) -> int:
+    scoped_user_id = storage_user_id(user_id)
+    cursor = conn.execute(
+        """
+        INSERT OR IGNORE INTO resume_assets (
+          user_id,
+          original_filename,
+          content_type,
+          storage_path,
+          sha256
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            scoped_user_id,
+            original_filename,
+            content_type,
+            storage_path,
+            sha256,
+        ),
+    )
+    conn.commit()
+    if cursor.rowcount:
+        return int(cursor.lastrowid)
+    row = conn.execute(
+        """
+        SELECT id
+        FROM resume_assets
+        WHERE user_id = ? AND sha256 = ?
+        """,
+        (scoped_user_id, sha256),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"resume asset not found for sha256: {sha256}")
+    return int(_row_value(row, "id"))
+
+
+def require_resume_asset_access(
+    conn: sqlite3.Connection,
+    resume_asset_id: int,
+    *,
+    user_id: str | None,
+) -> None:
+    if user_id is None:
+        return
+    row = conn.execute(
+        "SELECT user_id FROM resume_assets WHERE id = ?",
+        (resume_asset_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"resume_asset_id not found: {resume_asset_id}")
+    owner_id = _row_value(row, "user_id")
+    owner = "" if owner_id is None else str(owner_id)
+    if owner != user_id:
+        raise ResumeAssetAccessDenied(
+            f"resume_asset_id not accessible: {resume_asset_id}"
+        )
+
+
 def create_target_profile(
     conn: sqlite3.Connection,
     resume_asset_id: int,
@@ -30,6 +105,7 @@ def create_target_profile(
     *,
     user_id: str | None = None,
 ) -> int:
+    require_resume_asset_access(conn, resume_asset_id, user_id=user_id)
     _require_resume_asset(conn, resume_asset_id)
     _validate_preferences(preferences)
     if not isinstance(keywords, Mapping):

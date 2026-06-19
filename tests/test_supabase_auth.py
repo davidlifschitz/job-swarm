@@ -127,8 +127,14 @@ def test_profile_access_denied_for_other_user(tmp_path, monkeypatch):
     conn = app.state.conn
     conn.execute(
         """
-        INSERT INTO resume_assets (original_filename, content_type, storage_path, sha256)
-        VALUES ('resume.pdf', 'application/pdf', '/tmp/resume.pdf', 'digest-a')
+        INSERT INTO resume_assets (
+          user_id,
+          original_filename,
+          content_type,
+          storage_path,
+          sha256
+        )
+        VALUES ('owner-a', 'resume.pdf', 'application/pdf', '/tmp/resume.pdf', 'digest-a')
         """
     )
     conn.commit()

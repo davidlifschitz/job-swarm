@@ -62,6 +62,7 @@ def test_schema_includes_privacy_and_review_gate_fields():
     assert {"version", "resume_asset_id", "active"} <= table_columns(
         conn, "target_profiles"
     )
+    assert {"user_id", "sha256", "storage_path"} <= table_columns(conn, "resume_assets")
     assert {
         "fit_score",
         "label",

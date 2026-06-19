@@ -166,11 +166,13 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 CREATE TABLE IF NOT EXISTS resume_assets (
   id INTEGER PRIMARY KEY,
+  user_id TEXT,
   original_filename TEXT NOT NULL,
   content_type TEXT NOT NULL,
   storage_path TEXT NOT NULL,
-  sha256 TEXT NOT NULL UNIQUE,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  sha256 TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, sha256)
 );
 
 CREATE TABLE IF NOT EXISTS resume_parse_runs (
@@ -375,6 +377,7 @@ def init_db(conn: sqlite3.Connection) -> None:
     )
     _ensure_column(conn, "target_profiles", "user_id", "TEXT")
     _migrate_linkedin_connections_user_scope(conn)
+    _migrate_resume_assets_user_scope(conn)
     conn.commit()
 
 
@@ -442,6 +445,58 @@ def _migrate_linkedin_connections_user_scope(conn: sqlite3.Connection) -> None:
         ON linkedin_connections(company_norm);
         UPDATE linkedin_connections SET user_id = '' WHERE user_id IS NULL;
         UPDATE linkedin_connection_imports SET user_id = '' WHERE user_id IS NULL;
+        """
+    )
+
+
+def _migrate_resume_assets_user_scope(conn: sqlite3.Connection) -> None:
+    _ensure_column(conn, "resume_assets", "user_id", "TEXT")
+    row = conn.execute(
+        """
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = 'resume_assets'
+          AND sql LIKE '%UNIQUE(user_id, sha256)%'
+        """
+    ).fetchone()
+    if row is not None:
+        conn.execute(
+            "UPDATE resume_assets SET user_id = '' WHERE user_id IS NULL"
+        )
+        return
+    conn.executescript(
+        """
+        CREATE TABLE resume_assets__scoped (
+          id INTEGER PRIMARY KEY,
+          user_id TEXT,
+          original_filename TEXT NOT NULL,
+          content_type TEXT NOT NULL,
+          storage_path TEXT NOT NULL,
+          sha256 TEXT NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(user_id, sha256)
+        );
+        INSERT INTO resume_assets__scoped (
+          id,
+          user_id,
+          original_filename,
+          content_type,
+          storage_path,
+          sha256,
+          created_at
+        )
+        SELECT
+          id,
+          user_id,
+          original_filename,
+          content_type,
+          storage_path,
+          sha256,
+          created_at
+        FROM resume_assets;
+        DROP TABLE resume_assets;
+        ALTER TABLE resume_assets__scoped RENAME TO resume_assets;
+        UPDATE resume_assets SET user_id = '' WHERE user_id IS NULL;
         """
     )
 

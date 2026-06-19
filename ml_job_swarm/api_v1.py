@@ -48,8 +48,13 @@ from ml_job_swarm.linkedin_connections import (
 )
 from ml_job_swarm.profile import (
     REQUIRED_PREFERENCE_IDS,
+    ProfileAccessDenied,
+    ResumeAssetAccessDenied,
     create_target_profile,
+    require_resume_asset_access,
+    require_target_profile_access,
     update_preferences,
+    upsert_resume_asset_record,
 )
 from ml_job_swarm.resume_extract import (
     ResumeExtractionError,
@@ -169,6 +174,41 @@ def _require_supported_resume(resume: UploadFile) -> None:
     if content_type in SUPPORTED_RESUME_TYPES:
         return
     raise HTTPException(status_code=400, detail="Resume must be a PDF or DOCX file")
+
+
+def _profile_count(conn: sqlite3.Connection, *, user_id: str | None) -> int:
+    if user_id is None:
+        row = conn.execute("SELECT COUNT(*) AS count FROM target_profiles").fetchone()
+    else:
+        row = conn.execute(
+            "SELECT COUNT(*) AS count FROM target_profiles WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    return int(row["count"]) if row else 0
+
+
+def _require_api_resume_access(
+    conn: sqlite3.Connection,
+    resume_asset_id: int,
+    *,
+    user_id: str | None,
+) -> None:
+    try:
+        require_resume_asset_access(conn, resume_asset_id, user_id=user_id)
+    except ResumeAssetAccessDenied as exc:
+        raise HTTPException(status_code=403, detail="resume asset not accessible") from exc
+
+
+def _require_api_profile_access(
+    conn: sqlite3.Connection,
+    target_profile_id: int,
+    *,
+    user_id: str | None,
+) -> None:
+    try:
+        require_target_profile_access(conn, target_profile_id, user_id=user_id)
+    except ProfileAccessDenied as exc:
+        raise HTTPException(status_code=403, detail="target profile not accessible") from exc
 
 
 def _rules_preview_company_groups(
@@ -305,23 +345,29 @@ def create_api_v1_router(
 
     @router.get("/health")
     def health(request: Request) -> dict[str, object]:
-        profile_count = conn.execute("SELECT COUNT(*) AS count FROM target_profiles").fetchone()
+        user_id = get_authenticated_user_id(request)
         job_count = conn.execute("SELECT COUNT(*) AS count FROM jobs").fetchone()
         return {
             "status": "ok",
             "connection_count": linkedin_connection_count(
                 conn,
-                user_id=get_authenticated_user_id(request),
+                user_id=user_id,
             ),
             "fit_review_available": get_fit_gate_client() is not None,
-            "profile_count": int(profile_count["count"]) if profile_count else 0,
+            "profile_count": _profile_count(conn, user_id=user_id),
             "job_count": int(job_count["count"]) if job_count else 0,
             "db_path": db_path,
         }
 
     @router.get("/onboarding")
-    def onboarding_state(resume_asset_id: int | None = None) -> dict[str, object]:
-        profile_count = conn.execute("SELECT COUNT(*) AS count FROM target_profiles").fetchone()
+    def onboarding_state(
+        request: Request,
+        resume_asset_id: int | None = None,
+    ) -> dict[str, object]:
+        user_id = get_authenticated_user_id(request)
+        if resume_asset_id is not None:
+            _require_api_resume_access(conn, resume_asset_id, user_id=user_id)
+        profile_count = _profile_count(conn, user_id=user_id)
         pending_vision_fallback = False
         if resume_asset_id is not None:
             pending = conn.execute(
@@ -338,7 +384,7 @@ def create_api_v1_router(
             ).fetchone()
             pending_vision_fallback = pending is not None
         return {
-            "has_profiles": bool(profile_count and int(profile_count["count"]) > 0),
+            "has_profiles": profile_count > 0,
             "preference_fields": list(REQUIRED_PREFERENCE_IDS),
             "resume_asset_id": resume_asset_id,
             "pending_vision_fallback": pending_vision_fallback,
@@ -346,7 +392,10 @@ def create_api_v1_router(
         }
 
     @router.post("/onboarding/resume")
-    async def upload_onboarding_resume(resume: UploadFile = File(...)) -> dict[str, object]:
+    async def upload_onboarding_resume(
+        request: Request,
+        resume: UploadFile = File(...),
+    ) -> dict[str, object]:
         _require_supported_resume(resume)
         content = await resume.read()
         if not content:
@@ -359,32 +408,14 @@ def create_api_v1_router(
             digest=digest,
             asset_dir=resume_asset_dir,
         )
-        cursor = conn.execute(
-            """
-            INSERT OR IGNORE INTO resume_assets (
-              original_filename,
-              content_type,
-              storage_path,
-              sha256
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                resume.filename or "resume",
-                resume.content_type or "",
-                storage_path,
-                digest,
-            ),
+        resume_asset_id = upsert_resume_asset_record(
+            conn,
+            user_id=get_authenticated_user_id(request),
+            original_filename=resume.filename or "resume",
+            content_type=resume.content_type or "",
+            storage_path=storage_path,
+            sha256=digest,
         )
-        conn.commit()
-        if cursor.rowcount:
-            resume_asset_id = int(cursor.lastrowid)
-        else:
-            row = conn.execute(
-                "SELECT id FROM resume_assets WHERE sha256 = ?",
-                (digest,),
-            ).fetchone()
-            resume_asset_id = int(row["id"])
 
         try:
             extracted_text = extract_text_from_bytes(content, resume.filename or "resume")
@@ -405,7 +436,15 @@ def create_api_v1_router(
         }
 
     @router.post("/onboarding/vision-fallback")
-    def consent_vision_fallback(payload: VisionFallbackRequest) -> dict[str, object]:
+    def consent_vision_fallback(
+        request: Request,
+        payload: VisionFallbackRequest,
+    ) -> dict[str, object]:
+        _require_api_resume_access(
+            conn,
+            payload.resume_asset_id,
+            user_id=get_authenticated_user_id(request),
+        )
         pending_run = conn.execute(
             """
             SELECT id
@@ -507,12 +546,21 @@ def create_api_v1_router(
         }
 
     @router.post("/onboarding/preferences")
-    def create_onboarding_preferences(payload: PreferencesRequest) -> dict[str, object]:
+    def create_onboarding_preferences(
+        request: Request,
+        payload: PreferencesRequest,
+    ) -> dict[str, object]:
         if payload.resume_asset_id is None:
             raise HTTPException(
                 status_code=400,
                 detail="Upload a resume before saving preferences",
             )
+        user_id = get_authenticated_user_id(request)
+        _require_api_resume_access(
+            conn,
+            payload.resume_asset_id,
+            user_id=user_id,
+        )
         missing = [
             field
             for field in REQUIRED_PREFERENCE_IDS
@@ -529,27 +577,47 @@ def create_api_v1_router(
                 resume_asset_id=payload.resume_asset_id,
                 keywords=_keywords_payload(payload),
                 preferences=_preferences_payload(payload),
+                user_id=user_id,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+        except ResumeAssetAccessDenied as exc:
+            raise HTTPException(status_code=403, detail="resume asset not accessible") from exc
         return {
             "status": "ok",
             "target_profile_id": target_profile_id,
         }
 
     @router.get("/profiles")
-    def list_profiles() -> dict[str, object]:
-        rows = conn.execute(
-            """
-            SELECT id, name, version, active
-            FROM target_profiles
-            ORDER BY id DESC
-            """
-        ).fetchall()
+    def list_profiles(request: Request) -> dict[str, object]:
+        user_id = get_authenticated_user_id(request)
+        if user_id is None:
+            rows = conn.execute(
+                """
+                SELECT id, name, version, active
+                FROM target_profiles
+                ORDER BY id DESC
+                """
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, name, version, active
+                FROM target_profiles
+                WHERE user_id = ?
+                ORDER BY id DESC
+                """,
+                (user_id,),
+            ).fetchall()
         return {"profiles": [dict(row) for row in rows]}
 
     @router.get("/profiles/{target_profile_id}")
-    def get_profile(target_profile_id: int) -> dict[str, object]:
+    def get_profile(request: Request, target_profile_id: int) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         try:
             return profile_summary(conn, target_profile_id)
         except ValueError as exc:
@@ -557,9 +625,15 @@ def create_api_v1_router(
 
     @router.put("/profiles/{target_profile_id}/preferences")
     def update_profile_preferences(
+        request: Request,
         target_profile_id: int,
         payload: PreferencesRequest,
     ) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         missing = [
             field
             for field in REQUIRED_PREFERENCE_IDS
@@ -581,7 +655,12 @@ def create_api_v1_router(
         return {"status": "ok", "version": version}
 
     @router.get("/profiles/{target_profile_id}/workspace")
-    def profile_workspace(target_profile_id: int) -> dict[str, object]:
+    def profile_workspace(request: Request, target_profile_id: int) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         try:
             summary = profile_summary(conn, target_profile_id)
         except ValueError as exc:

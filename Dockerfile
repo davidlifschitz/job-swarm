@@ -8,8 +8,9 @@ COPY pyproject.toml uv.lock README.md ./
 COPY ml_job_swarm ./ml_job_swarm
 COPY data ./data
 COPY scripts/start-hosted.sh ./scripts/start-hosted.sh
+COPY scripts/start-cloud-worker.sh ./scripts/start-cloud-worker.sh
 
-RUN chmod +x ./scripts/start-hosted.sh \
+RUN chmod +x ./scripts/start-hosted.sh ./scripts/start-cloud-worker.sh \
   && uv sync --frozen --no-dev
 
 ENV ML_JOB_SWARM_DATA_DIR=/data \

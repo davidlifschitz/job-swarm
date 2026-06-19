@@ -79,10 +79,13 @@ from ml_job_swarm.openrouter import configure_openrouter_clients_from_env
 from ml_job_swarm.profile import (
     REQUIRED_PREFERENCE_IDS,
     ProfileAccessDenied,
+    ResumeAssetAccessDenied,
     create_target_profile,
     current_profile_version,
+    require_resume_asset_access,
     require_target_profile_access,
     update_preferences,
+    upsert_resume_asset_record,
 )
 from ml_job_swarm.supabase_auth import supabase_config_from_env, validate_access_token
 from ml_job_swarm.resume_assets import (
@@ -264,6 +267,8 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         resume_asset_id: int | None = None,
         vision_fallback: str | None = None,
     ) -> HTMLResponse:
+        if resume_asset_id is not None:
+            _require_resume_access(request, resume_asset_id)
         return _render(
             request,
             "onboarding.html",
@@ -274,6 +279,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/resume")
     async def upload_resume(
+        request: Request,
         resume: Annotated[UploadFile, File()],
     ) -> RedirectResponse:
         _require_supported_resume(resume)
@@ -288,32 +294,14 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
             digest=digest,
             asset_dir=app.state.resume_asset_dir,
         )
-        cursor = conn.execute(
-            """
-            INSERT OR IGNORE INTO resume_assets (
-              original_filename,
-              content_type,
-              storage_path,
-              sha256
-            )
-            VALUES (?, ?, ?, ?)
-            """,
-            (
-                resume.filename or "resume",
-                resume.content_type or "",
-                storage_path,
-                digest,
-            ),
+        resume_asset_id = upsert_resume_asset_record(
+            conn,
+            user_id=_authenticated_user_id(request),
+            original_filename=resume.filename or "resume",
+            content_type=resume.content_type or "",
+            storage_path=storage_path,
+            sha256=digest,
         )
-        conn.commit()
-        if cursor.rowcount:
-            resume_asset_id = int(cursor.lastrowid)
-        else:
-            row = conn.execute(
-                "SELECT id FROM resume_assets WHERE sha256 = ?",
-                (digest,),
-            ).fetchone()
-            resume_asset_id = int(row["id"])
 
         try:
             extracted_text = extract_text_from_bytes(content, resume.filename or "resume")
@@ -337,6 +325,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         request: Request,
         resume_asset_id: Annotated[int, Form()],
     ):
+        _require_resume_access(request, resume_asset_id)
         pending_run = conn.execute(
             """
             SELECT id
@@ -425,8 +414,10 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/resume/decline-vision-fallback", response_class=HTMLResponse)
     async def decline_vision_fallback(
+        request: Request,
         resume_asset_id: Annotated[int, Form()],
     ):
+        _require_resume_access(request, resume_asset_id)
         pending_run = conn.execute(
             """
             SELECT id
@@ -481,6 +472,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
             )
 
         preferences = _preferences_payload(submitted)
+        _require_resume_access(request, resume_asset_id)
         keywords = {
             "desired_titles": [str(form["role"])],
             "levels": [str(form["level"])],
@@ -1809,6 +1801,17 @@ def _require_profile_access(request: Request, target_profile_id: int) -> None:
         )
     except ProfileAccessDenied as exc:
         raise HTTPException(status_code=403, detail="target profile not accessible") from exc
+
+
+def _require_resume_access(request: Request, resume_asset_id: int) -> None:
+    try:
+        require_resume_asset_access(
+            request.app.state.conn,
+            resume_asset_id,
+            user_id=_authenticated_user_id(request),
+        )
+    except ResumeAssetAccessDenied as exc:
+        raise HTTPException(status_code=403, detail="resume asset not accessible") from exc
 
 
 def _render(

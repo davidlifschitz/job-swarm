@@ -48,10 +48,16 @@ def _auth_env(monkeypatch) -> None:
 def _seed_profile(conn, *, user_id: str | None = None, sha256: str = "scope-route-sha") -> int:
     resume_asset_id = conn.execute(
         """
-        INSERT INTO resume_assets (original_filename, content_type, storage_path, sha256)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO resume_assets (
+          user_id,
+          original_filename,
+          content_type,
+          storage_path,
+          sha256
+        )
+        VALUES (?, ?, ?, ?, ?)
         """,
-        ("resume.pdf", "application/pdf", "/tmp/resume.pdf", sha256),
+        (user_id or "", "resume.pdf", "application/pdf", "/tmp/resume.pdf", sha256),
     ).lastrowid
     return create_target_profile(
         conn,
