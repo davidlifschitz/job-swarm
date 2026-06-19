@@ -30,9 +30,37 @@ def hosted_paths_from_env(env: dict[str, str] | None = None) -> dict[str, str]:
     }
 
 
-def ensure_hosted_directories(paths: dict[str, str]) -> None:
-    Path(paths["db_path"]).parent.mkdir(parents=True, exist_ok=True)
-    Path(paths["resume_asset_dir"]).mkdir(parents=True, exist_ok=True)
+def ensure_hosted_directories(
+    paths: dict[str, str],
+    env: dict[str, str] | None = None,
+) -> None:
+    source = env if env is not None else os.environ
+    if not uses_postgres_database(source):
+        Path(paths["db_path"]).parent.mkdir(parents=True, exist_ok=True)
+    if not uses_supabase_resume_storage(source):
+        Path(paths["resume_asset_dir"]).mkdir(parents=True, exist_ok=True)
+
+
+def uses_postgres_database(env: dict[str, str] | None = None) -> bool:
+    source = env if env is not None else os.environ
+    return bool((source.get("DATABASE_URL") or "").strip())
+
+
+def uses_supabase_resume_storage(env: dict[str, str] | None = None) -> bool:
+    from ml_job_swarm.resume_storage import _supabase_storage_enabled
+
+    source = env if env is not None else os.environ
+    return _supabase_storage_enabled(source)
+
+
+def hosted_storage_mode(env: dict[str, str] | None = None) -> dict[str, str]:
+    source = env if env is not None else os.environ
+    return {
+        "database_backend": "postgresql" if uses_postgres_database(source) else "sqlite",
+        "resume_storage_backend": (
+            "supabase" if uses_supabase_resume_storage(source) else "local"
+        ),
+    }
 
 
 def is_hosted_deployment(env: dict[str, str] | None = None) -> bool:

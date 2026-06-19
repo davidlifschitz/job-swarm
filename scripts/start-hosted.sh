@@ -9,7 +9,12 @@ export ML_JOB_SWARM_DB_PATH="${ML_JOB_SWARM_DB_PATH:-${ML_JOB_SWARM_DATA_DIR}/jo
 export ML_JOB_SWARM_RESUME_ASSET_DIR="${ML_JOB_SWARM_RESUME_ASSET_DIR:-${ML_JOB_SWARM_DATA_DIR}/resume-assets}"
 export ML_JOB_SWARM_SEED_COMPANIES="${ML_JOB_SWARM_SEED_COMPANIES:-data/seed_companies.json}"
 
-mkdir -p "$(dirname "${ML_JOB_SWARM_DB_PATH}")" "${ML_JOB_SWARM_RESUME_ASSET_DIR}"
+if [[ -z "${DATABASE_URL:-}" ]]; then
+  mkdir -p "$(dirname "${ML_JOB_SWARM_DB_PATH}")"
+fi
+if [[ -z "${SUPABASE_URL:-}" || ( -z "${SUPABASE_SERVICE_ROLE_KEY:-}" && -z "${SUPABASE_SECRET_KEY:-}" ) ]]; then
+  mkdir -p "${ML_JOB_SWARM_RESUME_ASSET_DIR}"
+fi
 
 HOST="${HOST:-0.0.0.0}"
 PORT="${PORT:-8080}"

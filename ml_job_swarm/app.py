@@ -1565,17 +1565,27 @@ def create_app(
 
     @app.get("/healthz")
     def healthz():
+        from ml_job_swarm.hosting import hosted_storage_mode
+
         report = build_runtime_readiness_report(conn)
+        storage_mode = hosted_storage_mode()
         return {
             "status": report["status"],
             "service": report["service"],
             "database": report["database"],
+            "database_backend": report["database_backend"],
+            "resume_storage_backend": storage_mode["resume_storage_backend"],
             "slo_targets": report["slo_targets"],
         }
 
     @app.get("/api/cloud/readiness")
     def cloud_readiness():
-        return build_runtime_readiness_report(conn)
+        from ml_job_swarm.hosting import hosted_storage_mode
+
+        return {
+            **build_runtime_readiness_report(conn),
+            **hosted_storage_mode(),
+        }
 
     @app.get("/api/cloud/runs")
     def list_cloud_runs(http_request: Request):

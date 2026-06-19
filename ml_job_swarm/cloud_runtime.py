@@ -333,6 +333,7 @@ def build_runtime_readiness_report(conn: StoreConnection) -> dict[str, object]:
         "status": "ok",
         "service": "ml-job-swarm",
         "database": "ok",
+        "database_backend": database_backend_label(conn),
         "slo_targets": dict(SLO_TARGETS),
         "run_counts": run_counts,
         "active_run_ids": [str(run["id"]) for run in active_runs],
@@ -708,6 +709,14 @@ def _event_from_row(row: Mapping[str, Any]) -> dict[str, object]:
         "trace_id": row["trace_id"],
         "created_at": _serialize_db_value(row["created_at"]),
     }
+
+
+def database_backend_label(conn: StoreConnection) -> str:
+    from ml_job_swarm.db.postgres_backend import PostgresDatabase
+
+    if isinstance(conn, PostgresDatabase):
+        return "postgresql"
+    return "sqlite"
 
 
 def _serialize_db_value(value: Any) -> Any:
