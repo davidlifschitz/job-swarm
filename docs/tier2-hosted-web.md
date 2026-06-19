@@ -57,7 +57,15 @@ uv run ml-job-swarm-cloud-worker --db-path /data/jobs.db --max-runs 0
 
 `--max-runs 0` runs until idle in a loop (daemon mode). Or invoke `POST /api/cloud/worker/run-next` from a cron on the web service.
 
-### 4. Post-deploy smoke
+### 4. Pre-deploy smoke (local)
+
+```bash
+./scripts/railway-preflight.sh
+```
+
+Builds the Docker image, starts a container with a temp `/data` volume, and runs `smoke-hosted.sh` against `http://127.0.0.1:18080`.
+
+### 5. Post-deploy smoke
 
 ```bash
 ./scripts/smoke-hosted.sh https://your-app.up.railway.app

@@ -51,3 +51,51 @@ jobs:
           APP_VERSION=0.0.0-ci INSTALL_DIR="/tmp/dist" ./scripts/build-macos-app.sh
       - name: Release smoke
         run: ./scripts/smoke-macos-release.sh "/tmp/dist/MLJobSwarm.app"
+
+  docker-build:
+    name: docker-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build hosted Docker image
+        run: docker build -t ml-job-swarm:ci .
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test deps for JWT smoke token
+        run: uv sync --frozen
+      - name: Hosted container smoke
+        env:
+          PREFLIGHT_JWT_SECRET: test-jwt-secret-for-hosted-auth-32b
+        run: |
+          chmod +x scripts/*.sh
+          container_id="$(docker run -d --rm -p 18080:18080 \
+            -e PORT=18080 \
+            -e ML_JOB_SWARM_DATA_DIR=/data \
+            -e SUPABASE_URL=https://example.supabase.co \
+            -e SUPABASE_ANON_KEY=ci-anon-key \
+            -e SUPABASE_JWT_SECRET="${PREFLIGHT_JWT_SECRET}" \
+            -v /tmp/ml-job-swarm-docker:/data \
+            ml-job-swarm:ci)"
+          trap 'docker stop "${container_id}" >/dev/null 2>&1 || true' EXIT
+          for _ in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:18080/healthz >/dev/null 2>&1; then
+              break
+            fi
+            sleep 1
+          done
+          ./scripts/smoke-hosted.sh http://127.0.0.1:18080
+          token="$(uv run python - <<'PY'
+          import jwt, os, time
+          secret = os.environ["PREFLIGHT_JWT_SECRET"]
+          print(jwt.encode(
+              {"sub": "ci-user", "aud": "authenticated", "exp": int(time.time()) + 3600},
+              secret,
+              algorithm="HS256",
+          ))
+          PY
+          )"
+          ./scripts/smoke-hosted.sh http://127.0.0.1:18080 "${token}"

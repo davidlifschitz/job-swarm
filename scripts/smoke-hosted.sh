@@ -11,17 +11,17 @@ if [[ -z "${BASE_URL}" ]]; then
 fi
 
 BASE_URL="${BASE_URL%/}"
-AUTH_HEADER=()
-if [[ -n "${TOKEN}" ]]; then
-  AUTH_HEADER=(-H "Authorization: Bearer ${TOKEN}")
-fi
 
 echo "Checking ${BASE_URL}/healthz"
 health="$(curl -fsS "${BASE_URL}/healthz")"
 echo "${health}" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='ok', d"
 
 echo "Checking auth gate on /dashboard"
-status="$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL}/dashboard" "${AUTH_HEADER[@]}")"
+if [[ -n "${TOKEN}" ]]; then
+  status="$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL}/dashboard" -H "Authorization: Bearer ${TOKEN}")"
+else
+  status="$(curl -s -o /dev/null -w '%{http_code}' "${BASE_URL}/dashboard")"
+fi
 if [[ -n "${TOKEN}" ]]; then
   [[ "${status}" == "200" ]] || { echo "Expected 200 with token, got ${status}" >&2; exit 1; }
 else
@@ -33,7 +33,7 @@ fi
 
 if [[ -n "${TOKEN}" ]]; then
   echo "Checking /api/cloud/readiness"
-  curl -fsS "${BASE_URL}/api/cloud/readiness" "${AUTH_HEADER[@]}" >/dev/null
+  curl -fsS "${BASE_URL}/api/cloud/readiness" -H "Authorization: Bearer ${TOKEN}" >/dev/null
 fi
 
 echo "Hosted smoke checks passed for ${BASE_URL}"
