@@ -6,6 +6,7 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from ml_job_swarm.db.connection import StoreConnection
 from ml_job_swarm.llm import (
     FitGateClient,
     FitGatePayload,
@@ -636,7 +637,7 @@ def _target_profile_from_row(conn: sqlite3.Connection, row: sqlite3.Row) -> Targ
 
 
 def _insert_rules_filter_result(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     job_id: int,
     target_profile_id: int,
     result: RulesFilterResult,
@@ -665,7 +666,7 @@ def _insert_rules_filter_result(
 
 
 def _insert_fit_review(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     job_id: int,
     target_profile_id: int,

@@ -102,6 +102,7 @@ from ml_job_swarm.resume_extract import (
     record_parse_run,
 )
 from ml_job_swarm.source_policy import classify_source_url
+from ml_job_swarm.db.connection import connection_transaction
 from ml_job_swarm.store import connect, init_db, open_store_connection, store_connection_label
 
 
@@ -2608,7 +2609,7 @@ def _prepare_application_packet(
     )
     checklist = _application_checklist(detail)
     manual_submit_url = str(detail.get("apply_url") or "")
-    with conn:
+    with connection_transaction(conn):
         conn.execute(
             """
             INSERT INTO application_packets (

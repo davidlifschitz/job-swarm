@@ -39,12 +39,11 @@ class PostgresDatabase:
         from ml_job_swarm.db.dialect import BackendKind, translate_sql
 
         translated = translate_sql(sql, BackendKind.POSTGRES)
+        if _insert_should_return_id(translated):
+            translated = f"{translated.rstrip().rstrip(';')} RETURNING id"
         cursor = self._conn.cursor()
         cursor.execute(translated, params)
-        lastrowid = None
-        if translated.lstrip().upper().startswith("INSERT") and "RETURNING" not in translated.upper():
-            # Phase B1 will standardize INSERT ... RETURNING id for Postgres.
-            lastrowid = None
+        lastrowid = _read_insert_id(cursor, translated)
         return PostgresCursor(cursor, lastrowid=lastrowid)
 
     def executemany(
@@ -67,8 +66,42 @@ class PostgresDatabase:
     def commit(self) -> None:
         self._conn.commit()
 
+    def rollback(self) -> None:
+        self._conn.rollback()
+
+    def __enter__(self) -> PostgresDatabase:
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
+
     def close(self) -> None:
         self._conn.close()
+
+
+def _insert_should_return_id(sql: str) -> bool:
+    normalized = sql.lstrip().upper()
+    if not normalized.startswith("INSERT"):
+        return False
+    if "RETURNING" in normalized:
+        return False
+    if "INSERT INTO" not in normalized:
+        return False
+    return " SELECT " not in normalized
+
+
+def _read_insert_id(cursor: Any, sql: str) -> int | None:
+    if "RETURNING" not in sql.upper():
+        return None
+    row = cursor.fetchone()
+    if row is None:
+        return None
+    if isinstance(row, dict):
+        return int(row["id"])
+    return int(row[0])
 
 
 def connect_postgres(database_url: str) -> PostgresDatabase:

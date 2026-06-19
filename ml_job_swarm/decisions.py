@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import sqlite3
 from typing import get_args
 
+from ml_job_swarm.db.connection import StoreConnection
 from ml_job_swarm.models import JobDecision
 from ml_job_swarm.profile import current_profile_version
 
@@ -11,7 +11,7 @@ VALID_JOB_DECISIONS = set(get_args(JobDecision))
 
 
 def record_job_decision(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     job_id: int,
     target_profile_id: int,
@@ -53,7 +53,7 @@ def record_job_decision(
 
 
 def clear_job_decision(
-    conn: sqlite3.Connection, *, job_id: int, target_profile_id: int
+    conn: StoreConnection, *, job_id: int, target_profile_id: int
 ) -> None:
     _require_job_and_profile(conn, job_id, target_profile_id)
     conn.execute(
@@ -67,7 +67,7 @@ def clear_job_decision(
 
 
 def saved_job_export_rows(
-    conn: sqlite3.Connection, target_profile_id: int
+    conn: StoreConnection, target_profile_id: int
 ) -> list[dict[str, object]]:
     profile_version = current_profile_version(conn, target_profile_id)
     rows = conn.execute(
@@ -112,7 +112,7 @@ def saved_job_export_rows(
 
 
 def _require_job_and_profile(
-    conn: sqlite3.Connection, job_id: int, target_profile_id: int
+    conn: StoreConnection, job_id: int, target_profile_id: int
 ) -> None:
     job = conn.execute("SELECT id FROM jobs WHERE id = ?", (job_id,)).fetchone()
     if job is None:

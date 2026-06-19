@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from collections.abc import Mapping
 from typing import Any
+
+from ml_job_swarm.db.connection import StoreConnection, backend_kind_from_conn, connection_transaction
+from ml_job_swarm.db.dialect import insert_ignore_sql
 
 
 REQUIRED_PREFERENCE_IDS = ["role", "level", "location", "work_mode", "company_stage"]
@@ -31,7 +33,7 @@ def storage_user_id(user_id: str | None) -> str:
 
 
 def upsert_resume_asset_record(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     user_id: str | None,
     original_filename: str,
@@ -40,17 +42,20 @@ def upsert_resume_asset_record(
     sha256: str,
 ) -> int:
     scoped_user_id = storage_user_id(user_id)
+    columns = [
+        "user_id",
+        "original_filename",
+        "content_type",
+        "storage_path",
+        "sha256",
+    ]
     cursor = conn.execute(
-        """
-        INSERT OR IGNORE INTO resume_assets (
-          user_id,
-          original_filename,
-          content_type,
-          storage_path,
-          sha256
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
+        insert_ignore_sql(
+            "resume_assets",
+            ["user_id", "sha256"],
+            columns,
+            backend_kind_from_conn(conn),
+        ),
         (
             scoped_user_id,
             original_filename,
@@ -76,7 +81,7 @@ def upsert_resume_asset_record(
 
 
 def require_resume_asset_access(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     resume_asset_id: int,
     *,
     user_id: str | None,
@@ -98,7 +103,7 @@ def require_resume_asset_access(
 
 
 def create_target_profile(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     resume_asset_id: int,
     keywords: Mapping[str, Any],
     preferences: Mapping[str, Any],
@@ -114,7 +119,7 @@ def create_target_profile(
     values = _profile_column_values(keywords, preferences)
     name = _profile_name(keywords)
 
-    with conn:
+    with connection_transaction(conn):
         cursor = conn.execute(
             """
             INSERT INTO target_profiles (
@@ -149,7 +154,7 @@ def create_target_profile(
 
 
 def update_preferences(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     target_profile_id: int,
     preferences: Mapping[str, Any],
 ) -> int:
@@ -157,7 +162,7 @@ def update_preferences(
     current_version = current_profile_version(conn, target_profile_id)
     next_version = current_version + 1
 
-    with conn:
+    with connection_transaction(conn):
         conn.execute(
             "DELETE FROM preference_answers WHERE target_profile_id = ?",
             (target_profile_id,),
@@ -190,7 +195,7 @@ def update_preferences(
     return next_version
 
 
-def current_profile_version(conn: sqlite3.Connection, target_profile_id: int) -> int:
+def current_profile_version(conn: StoreConnection, target_profile_id: int) -> int:
     row = conn.execute(
         "SELECT version FROM target_profiles WHERE id = ?",
         (target_profile_id,),
@@ -201,7 +206,7 @@ def current_profile_version(conn: sqlite3.Connection, target_profile_id: int) ->
 
 
 def require_target_profile_access(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     target_profile_id: int,
     *,
     user_id: str | None,
@@ -237,7 +242,7 @@ def _validate_preferences(preferences: Mapping[str, Any]) -> None:
     raise ValueError("; ".join(parts))
 
 
-def _require_resume_asset(conn: sqlite3.Connection, resume_asset_id: int) -> None:
+def _require_resume_asset(conn: StoreConnection, resume_asset_id: int) -> None:
     row = conn.execute(
         "SELECT id FROM resume_assets WHERE id = ?",
         (resume_asset_id,),
@@ -247,7 +252,7 @@ def _require_resume_asset(conn: sqlite3.Connection, resume_asset_id: int) -> Non
 
 
 def _replace_preference_answers(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     target_profile_id: int,
     preferences: Mapping[str, Any],
 ) -> None:

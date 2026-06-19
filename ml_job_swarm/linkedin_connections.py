@@ -4,12 +4,12 @@ import csv
 import io
 import json
 import re
-import sqlite3
 import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from ml_job_swarm.catalog import _normalize_name
+from ml_job_swarm.db.connection import StoreConnection, connection_transaction
 
 
 _LINKEDIN_HEADER_MARKERS = ("First Name", "Last Name", "Company")
@@ -123,7 +123,7 @@ def _append_user_scope(
 
 
 def import_linkedin_connections(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     connections: list[LinkedInConnection],
     filename: str = "",
@@ -131,7 +131,7 @@ def import_linkedin_connections(
 ) -> LinkedInImportResult:
     now = datetime.now(UTC).isoformat()
     scoped_user_id = _storage_user_id(user_id)
-    with conn:
+    with connection_transaction(conn):
         cursor = conn.execute(
             """
             INSERT INTO linkedin_connection_imports (
@@ -211,7 +211,7 @@ def import_linkedin_connections(
 
 
 def linkedin_connection_count(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     user_id: str | None = None,
 ) -> int:
@@ -227,7 +227,7 @@ def linkedin_connection_count(
 
 
 def latest_import_summary(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     user_id: str | None = None,
 ) -> dict[str, object] | None:
@@ -249,7 +249,7 @@ def latest_import_summary(
 
 
 def list_linkedin_connections(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     search: str = "",
     user_id: str | None = None,
@@ -288,7 +288,7 @@ def list_linkedin_connections(
 
 
 def grouped_connections_by_company(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     search: str = "",
     user_id: str | None = None,
@@ -309,7 +309,7 @@ def grouped_connections_by_company(
 
 
 def _catalog_company_terms(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
 ) -> list[dict[str, object]]:
     rows = conn.execute(
         """
@@ -366,7 +366,7 @@ def connection_matches_company(
 
 
 def connections_for_company_id(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     company_id: int,
     *,
     user_id: str | None = None,
@@ -386,7 +386,7 @@ def connections_for_company_id(
 
 
 def connections_for_company_ids(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     company_ids: list[int],
     *,
     user_id: str | None = None,
@@ -421,7 +421,7 @@ def connections_for_company_ids(
 
 
 def matched_catalog_companies(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     user_id: str | None = None,
 ) -> list[CompanyConnectionMatch]:
@@ -451,7 +451,7 @@ def matched_catalog_companies(
 
 
 def _connections_matching_terms(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     company_terms: tuple[str, ...],
     user_id: str | None = None,

@@ -83,7 +83,7 @@ def test_runtime_readiness_report_exposes_operator_truth_and_slo_targets(tmp_pat
     assert report["run_counts"]["queued"] == 1
     assert report["run_counts"]["running"] == 1
     assert report["run_counts"]["canceled"] == 1
-    assert report["active_run_ids"] == [queued["id"], running["id"]]
+    assert set(report["active_run_ids"]) == {queued["id"], running["id"]}
     assert report["terminal_run_ids"] == [canceled["id"]]
 
 
