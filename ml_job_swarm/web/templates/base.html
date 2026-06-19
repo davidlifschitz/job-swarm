@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ml-job-swarm</title>
+    <link rel="stylesheet" href="/static/app.css?v=20260511-operator-console">
+  </head>
+  <body>
+    {% set _active = request.url.path if request is defined and request else '' %}
+    {% set _flash_messages = {
+      "saved": "Job saved",
+      "hidden": "Job hidden",
+      "cleared": "Decision cleared",
+    } %}
+    {% set _decision_status = request.query_params.get('decision_status') if request is defined and request else None %}
+    {% set _flash = _flash_messages.get(_decision_status) %}
+    {% set _target_profile_id = request.query_params.get('target_profile_id') if request is defined and request else None %}
+    {% set _dashboard_href = '/dashboard?target_profile_id=' ~ _target_profile_id if _target_profile_id else '/dashboard' %}
+    <div class="app-shell">
+      <aside class="app-sidebar" aria-label="Application">
+        <a class="sidebar-brand" href="{{ _dashboard_href }}" aria-label="ml-job-swarm home">
+          <span class="brand-mark" aria-hidden="true">ml</span>
+          <span>
+            <strong>ml-job-swarm</strong>
+            <small>Local-first job ops</small>
+          </span>
+        </a>
+        <nav class="global-nav" aria-label="Primary">
+          <a href="/onboarding"{% if _active.startswith('/onboarding') or _active == '/' %} aria-current="page"{% endif %}>Onboarding</a>
+          <a href="{{ _dashboard_href }}"{% if _active.startswith('/dashboard') or _active.startswith('/jobs') %} aria-current="page"{% endif %}>Dashboard</a>
+          <a href="/connections"{% if _active.startswith('/connections') %} aria-current="page"{% endif %}>Connections</a>
+          <a href="/admin/sources"{% if _active.startswith('/admin') or _active.startswith('/sources') %} aria-current="page"{% endif %}>Admin</a>
+        </nav>
+        <div class="local-status" aria-label="Safety boundaries">
+          <span>Public ATS only</span>
+          <span>Manual submit</span>
+          <span>SQLite local</span>
+        </div>
+      </aside>
+      <div class="app-content">
+        <header class="topbar" aria-label="Runtime status">
+          <span class="status-chip">Public ATS refresh</span>
+          <span class="status-chip status-chip-muted">Consent-gated LLM</span>
+          <span class="status-chip status-chip-muted">No aggregator scraping</span>
+          <span class="status-chip status-chip-deployment">
+            Deployment: {{ deployment_status.label }}
+            {% if deployment_status.url %}
+            <a href="{{ deployment_status.url }}" target="_blank" rel="noopener">{{ deployment_status.url|replace("https://", "")|replace("http://", "") }}</a>
+            {% else %}
+            <small>- {{ deployment_status.detail }}</small>
+            {% endif %}
+          </span>
+        </header>
+        {% if _flash %}
+        <p class="flash" role="status" aria-live="polite">{{ _flash }}</p>
+        {% endif %}
+        <div class="app-main">
+          <main class="page">
+            {% block content %}{% endblock %}
+          </main>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+Alex Rivera
+Machine Learning Engineer
+
+SUMMARY
+Machine learning engineer building production model-serving systems.
+
+SKILLS
+Python, PyTorch, SQL, Kubernetes, Distributed Systems
+
+EXPERIENCE
+Senior Machine Learning Engineer, Example AI
+Built retrieval and ranking systems for enterprise search.
+Improved inference latency by 35 percent.
+
+EDUCATION
+BS Computer Science, State University

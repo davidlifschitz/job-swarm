@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Catalog refresh</p>
+    <h1>Ingestion run history</h1>
+  </div>
+  <a class="text-link" href="/admin/sources">Back to source health</a>
+</header>
+
+{% if request.query_params.get("refresh_status") %}
+<section class="refresh-summary">
+  <h2>Refresh summary</h2>
+  <dl>
+    <div><dt>Status</dt><dd>{{ request.query_params.get("refresh_status") }}</dd></div>
+    <div><dt>Sources seen</dt><dd>{{ request.query_params.get("sources_seen") }}</dd></div>
+    <div><dt>Sources attempted</dt><dd>{{ request.query_params.get("sources_attempted") }}</dd></div>
+    <div><dt>Sources succeeded</dt><dd>{{ request.query_params.get("sources_succeeded") }}</dd></div>
+    <div><dt>Sources skipped</dt><dd>{{ request.query_params.get("sources_skipped") }}</dd></div>
+    <div><dt>Jobs seen</dt><dd>{{ request.query_params.get("jobs_seen") }}</dd></div>
+    <div><dt>Jobs closed</dt><dd>{{ request.query_params.get("jobs_closed") }}</dd></div>
+    <div><dt>Suspicious empty</dt><dd>{{ request.query_params.get("suspicious_empty") }}</dd></div>
+    <div><dt>Failures</dt><dd>{{ request.query_params.get("failures") }}</dd></div>
+    <div><dt>Blocked</dt><dd>{{ request.query_params.get("blocked") }}</dd></div>
+  </dl>
+</section>
+{% endif %}
+
+<section class="source-table-section">
+<table>
+  <thead>
+    <tr>
+      <th>Started</th>
+      <th>Finished</th>
+      <th>Status</th>
+      <th>Sources</th>
+      <th>Seen</th>
+      <th>Added</th>
+      <th>Updated</th>
+      <th>Closed</th>
+      <th>Error</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for run in runs %}
+    <tr data-run-id="{{ run.id }}">
+      <td><a href="/admin/runs/{{ run.id }}">{{ run.started_at }}</a></td>
+      <td>{{ run.finished_at or "running" }}</td>
+      <td>{{ run.status }}</td>
+      <td>{{ run.source_count }}</td>
+      <td>{{ run.jobs_seen }}</td>
+      <td>{{ run.jobs_added }}</td>
+      <td>{{ run.jobs_updated }}</td>
+      <td>{{ run.jobs_closed }}</td>
+      <td>{{ run.error or "" }}</td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="9">No ingestion runs</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</section>
+{% endblock %}

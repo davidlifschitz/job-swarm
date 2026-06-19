@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Source friction</h1>
+
+<p><a href="/admin/sources">Back to source health</a></p>
+<p><a href="/admin/sources/friction.csv">Export friction CSV</a></p>
+
+{% if friction_events %}
+<table>
+  <thead>
+    <tr>
+      <th>Company</th>
+      <th>Source</th>
+      <th>Event</th>
+      <th>Status</th>
+      <th>Details</th>
+      <th>Review</th>
+      <th>Created</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for event in friction_events %}
+    <tr>
+      <td>{{ event.company or "Unknown" }}</td>
+      <td>{{ event.source_url }}</td>
+      <td>{{ event.event_type }}</td>
+      <td>{{ event.status_code or "" }}</td>
+      <td>{{ event.details_json }}</td>
+      <td>
+        {{ event.review_status }}
+        {% if event.reviewed_at %}
+        <br>{{ event.reviewed_at }} by {{ event.reviewed_by or "local-admin" }}
+        {% endif %}
+        {% if event.review_note %}
+        <p>{{ event.review_note }}</p>
+        {% endif %}
+      </td>
+      <td>{{ event.created_at }}</td>
+      <td>
+        <form action="/admin/sources/friction/{{ event.id }}/review" method="post">
+          <input type="hidden" name="review_status" value="reviewed">
+          <input type="text" name="review_note" value="{{ event.review_note }}" placeholder="Review note">
+          <button type="submit">Mark reviewed</button>
+        </form>
+        <form action="/admin/sources/friction/{{ event.id }}/review" method="post">
+          <input type="hidden" name="review_status" value="resolved">
+          <input type="text" name="review_note" value="{{ event.review_note }}" placeholder="Resolution note">
+          <button type="submit">Mark resolved</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No source friction events</p>
+{% endif %}
+{% endblock %}

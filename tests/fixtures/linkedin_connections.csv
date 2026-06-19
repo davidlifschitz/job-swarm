@@ -1,0 +1,7 @@
+Notes:
+"When exporting your connection data, you may notice that some of the email addresses are missing. You will only see email addresses for connections who have allowed their connections to see or download their email address using this setting https://www.linkedin.com/psettings/privacy/email. You can learn more here https://www.linkedin.com/help/linkedin/answer/261"
+
+First Name,Last Name,URL,Email Address,Company,Position,Connected On
+Jamie,Example,https://www.linkedin.com/in/jamie-example-fixture,,Dataiku,Technical Talent Acquisition Partner,12 Jun 2026
+Alex,Sample,https://www.linkedin.com/in/alex-sample-fixture,,Cross River,Senior Engineer,12 Jun 2026
+Taylor,Demo,https://www.linkedin.com/in/taylor-demo-fixture,,Whisker Labs,Operations Engineer,15 Jun 2026

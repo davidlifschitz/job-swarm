@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Source operations</p>
+    <h1>Source health</h1>
+  </div>
+  <form action="/admin/sources/refresh" method="post" class="admin-refresh-action">
+    <button type="submit">Refresh sources</button>
+  </form>
+</header>
+
+<nav class="admin-actions" aria-label="Admin source actions">
+  <a href="/admin/audit">View admin audit</a>
+  <a href="/admin/runs">View run history</a>
+  <a href="/admin/sources/friction">View source friction</a>
+  <a href="/sources/new">Add company source</a>
+</nav>
+
+<section class="source-summary-panel" aria-label="Source coverage">
+  <h2>Source coverage</h2>
+  <p class="panel-copy">Reviewed, enabled sources are refreshed through supported public adapters. Disabled or unsupported sources stay visible so catalog gaps are actionable.</p>
+  <dl class="metric-grid source-metrics">
+    <div class="metric-card"><dt>Reviewed sources</dt><dd>{{ source_support_summary.total }}</dd></div>
+    <div class="metric-card"><dt>Refresh-ready</dt><dd>{{ source_support_summary.ready }}</dd></div>
+    <div class="metric-card"><dt>No adapter</dt><dd>{{ source_support_summary.unsupported }}</dd></div>
+    <div class="metric-card"><dt>Disabled</dt><dd>{{ source_support_summary.disabled }}</dd></div>
+  </dl>
+</section>
+
+<section class="source-table-section">
+<h2>Source review queue</h2>
+
+<table class="source-review-table">
+  <thead>
+    <tr>
+      <th>Company</th>
+      <th>Requested source</th>
+      <th>Reason</th>
+      <th>Policy</th>
+      <th>Inferred type</th>
+      <th>Refreshability</th>
+      <th>Status</th>
+      <th>Submitted</th>
+      <th>Reviewed</th>
+      <th>Action</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for review in source_reviews %}
+    <tr data-review-id="{{ review.id }}">
+      <td>{{ review.company_name }}</td>
+      <td>{{ review.requested_url }}</td>
+      <td>{{ review.reason }}</td>
+      <td>{{ review.policy_label }}</td>
+      <td>{{ review.inferred_source_type }}</td>
+      <td>{{ review.adapter_status_label }}</td>
+      <td>{{ review.status }}</td>
+      <td>{{ review.created_at }}</td>
+      <td>
+        {% if review.reviewed_at %}
+          {{ review.reviewed_at }} by {{ review.reviewed_by or "local-admin" }}
+        {% else %}
+          pending
+        {% endif %}
+      </td>
+      <td>
+        {% if review.status == "pending" %}
+        <form action="/admin/source-review/{{ review.id }}/approve" method="post">
+          <button type="submit">Approve</button>
+        </form>
+        <form action="/admin/source-review/{{ review.id }}/approve-refresh" method="post">
+          <button type="submit">Approve and refresh</button>
+        </form>
+        <form action="/admin/source-review/{{ review.id }}/reject" method="post">
+          <button type="submit">Reject</button>
+        </form>
+        {% elif review.status == "blocked" %}
+        <form action="/admin/source-review/{{ review.id }}/reject" method="post">
+          <button type="submit">Reject</button>
+        </form>
+        {% else %}
+        reviewed
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="10">No queued source reviews</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</section>
+
+<section class="source-table-section">
+<h2>Existing sources</h2>
+
+<table class="source-health-table">
+  <thead>
+    <tr>
+      <th>Company</th>
+      <th>Action</th>
+      <th>Source</th>
+      <th>Support / status</th>
+      <th>Active jobs</th>
+      <th>Last checked</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for source in sources %}
+    <tr data-source-id="{{ source.id }}">
+      <td>{{ source.company_name }}</td>
+      <td class="source-actions">
+        {% if source.disabled_at %}
+        <form action="/admin/sources/{{ source.id }}/enable" method="post">
+          <button type="submit">Enable</button>
+        </form>
+        {% else %}
+        {% if source.adapter_status == "ready" %}
+        <form action="/admin/sources/{{ source.id }}/refresh" method="post">
+          <button type="submit">Refresh</button>
+        </form>
+        {% endif %}
+        <form action="/admin/sources/{{ source.id }}/disable" method="post">
+          <button type="submit">Disable</button>
+        </form>
+        {% endif %}
+      </td>
+      <td><a class="source-url" href="{{ source.url }}" target="_blank" rel="noopener">{{ source.url }}</a></td>
+      <td class="source-status-cell">
+        <span class="status-badge status-badge-{{ source.adapter_status }}">{{ source.adapter_status_label }}</span>
+        <span class="status-badge status-badge-{{ source.health_status }}">{{ source.health_status_label }}</span>
+        <span class="status-badge status-badge-reviewed">{{ source.review_status }}</span>
+        {% if source.disabled_at %}<span class="status-badge status-badge-disabled">disabled</span>{% endif %}
+        <span class="source-status-note">Friction: {{ source.latest_event_type or "none" }}</span>
+        <span class="source-status-note">Recommendation: <span class="status-badge status-badge-{{ source.latest_recommendation|lower|replace(' ', '-') }}">{{ source.latest_recommendation }}</span></span>
+      </td>
+      <td>{{ source.active_job_count }}</td>
+      <td>{{ source.last_checked_at or "Never" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</section>
+{% endblock %}

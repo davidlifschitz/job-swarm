@@ -1,0 +1,1017 @@
+[
+  {
+    "name": "OpenAI",
+    "aliases": [],
+    "tags": [
+      "ai_lab",
+      "ai_infra"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://openai.com/careers/search/",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://jobs.ashbyhq.com/openai",
+        "source_type": "ashby"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Anthropic",
+    "aliases": [],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://www.anthropic.com/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://boards.greenhouse.io/anthropic",
+        "source_type": "greenhouse"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Google DeepMind",
+    "aliases": [
+      "DeepMind",
+      "Google DeepMind",
+      "Deep Mind"
+    ],
+    "tags": [
+      "ai_lab",
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://deepmind.google/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Cohere",
+    "aliases": [],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://cohere.com/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Mistral AI",
+    "aliases": [
+      "Mistral"
+    ],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://mistral.ai/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://jobs.lever.co/mistral",
+        "source_type": "lever"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Perplexity",
+    "aliases": [
+      "Perplexity AI"
+    ],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://www.perplexity.ai/hub/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "xAI",
+    "aliases": [],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://x.ai/careers",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Adept",
+    "aliases": [
+      "Adept AI"
+    ],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "startup",
+    "priority_tier": 2,
+    "careers_url": "https://www.adept.ai/about-careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Inflection AI",
+    "aliases": [
+      "Inflection"
+    ],
+    "tags": [
+      "ai_lab"
+    ],
+    "stage": "growth",
+    "priority_tier": 2,
+    "careers_url": "https://inflection.ai/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://boards.greenhouse.io/inflectionai",
+        "source_type": "greenhouse"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "NVIDIA",
+    "aliases": [
+      "Nvidia"
+    ],
+    "tags": [
+      "ai_infra",
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite",
+    "ats_type": "workday",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Databricks",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://www.databricks.com/company/careers",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Snowflake",
+    "aliases": [],
+    "tags": [
+      "ai_infra"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://careers.snowflake.com/us/en",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Scale AI",
+    "aliases": [
+      "Scale"
+    ],
+    "tags": [
+      "ai_infra"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://scale.com/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://boards.greenhouse.io/scaleai",
+        "source_type": "greenhouse"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Hugging Face",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://huggingface.co/jobs",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://apply.workable.com/huggingface/",
+        "source_type": "workable"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "LangChain",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "startup",
+    "priority_tier": 1,
+    "careers_url": "https://www.langchain.com/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Weights & Biases",
+    "aliases": [
+      "W&B",
+      "Weights and Biases"
+    ],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://wandb.ai/site/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Together AI",
+    "aliases": [
+      "Together"
+    ],
+    "tags": [
+      "ai_infra"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://www.together.ai/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://boards.greenhouse.io/togetherai",
+        "source_type": "greenhouse"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Modal",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "startup",
+    "priority_tier": 1,
+    "careers_url": "https://modal.com/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Anyscale",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 2,
+    "careers_url": "https://www.anyscale.com/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://jobs.ashbyhq.com/anyscale",
+        "source_type": "ashby"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Replicate",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "startup",
+    "priority_tier": 2,
+    "careers_url": "https://replicate.com/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Baseten",
+    "aliases": [],
+    "tags": [
+      "ai_infra",
+      "developer_tools"
+    ],
+    "stage": "startup",
+    "priority_tier": 2,
+    "careers_url": "https://www.baseten.co/careers/",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "CoreWeave",
+    "aliases": [],
+    "tags": [
+      "ai_infra"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://www.coreweave.com/careers",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://boards.greenhouse.io/coreweave",
+        "source_type": "greenhouse"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Google",
+    "aliases": [
+      "Alphabet"
+    ],
+    "tags": [
+      "big_tech",
+      "ai_lab"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.google.com/about/careers/applications/jobs/results/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Microsoft",
+    "aliases": [
+      "Microsoft Corporation"
+    ],
+    "tags": [
+      "big_tech",
+      "ai_lab"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://careers.microsoft.com/us/en",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Meta",
+    "aliases": [
+      "Facebook",
+      "Meta Platforms"
+    ],
+    "tags": [
+      "big_tech",
+      "ai_lab"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.metacareers.com/jobs/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Amazon",
+    "aliases": [
+      "AWS",
+      "Amazon.com"
+    ],
+    "tags": [
+      "big_tech",
+      "ai_infra"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.amazon.jobs/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Apple",
+    "aliases": [],
+    "tags": [
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.apple.com/careers/us/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Netflix",
+    "aliases": [],
+    "tags": [
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://jobs.netflix.com/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Uber",
+    "aliases": [],
+    "tags": [
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.uber.com/us/en/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Airbnb",
+    "aliases": [],
+    "tags": [
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://careers.airbnb.com/",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Jane Street",
+    "aliases": [],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.janestreet.com/join-jane-street/open-roles/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Citadel Securities",
+    "aliases": [
+      "Citadel"
+    ],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.citadelsecurities.com/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Two Sigma",
+    "aliases": [],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.twosigma.com/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Hudson River Trading",
+    "aliases": [
+      "HRT"
+    ],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.hudsonrivertrading.com/careers/",
+    "ats_type": "careers",
+    "extra_sources": [
+      {
+        "url": "https://boards.greenhouse.io/hrttalentcommunity",
+        "source_type": "greenhouse"
+      }
+    ],
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Jump Trading",
+    "aliases": [
+      "Jump"
+    ],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.jumptrading.com/careers/",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "D. E. Shaw",
+    "aliases": [
+      "DESCO",
+      "DE Shaw"
+    ],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.deshaw.com/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Tower Research Capital",
+    "aliases": [
+      "Tower Research"
+    ],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.tower-research.com/open-positions/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Optiver",
+    "aliases": [],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://optiver.com/working-at-optiver/career-opportunities/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "IMC Trading",
+    "aliases": [
+      "IMC"
+    ],
+    "tags": [
+      "quant"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.imc.com/us/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Stripe",
+    "aliases": [],
+    "tags": [
+      "fintech",
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://stripe.com/jobs/search",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Block",
+    "aliases": [
+      "Square"
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://block.xyz/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Plaid",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://plaid.com/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Coinbase",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.coinbase.com/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Robinhood",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://careers.robinhood.com/",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Ramp",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://ramp.com/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Brex",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "growth",
+    "priority_tier": 2,
+    "careers_url": "https://www.brex.com/careers",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Affirm",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.affirm.com/careers",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "GitHub",
+    "aliases": [],
+    "tags": [
+      "developer_tools",
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://github.careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "GitLab",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://about.gitlab.com/jobs/",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Vercel",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 1,
+    "careers_url": "https://vercel.com/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Anysphere",
+    "aliases": [
+      "Cursor"
+    ],
+    "tags": [
+      "developer_tools",
+      "ai_infra"
+    ],
+    "stage": "startup",
+    "priority_tier": 1,
+    "careers_url": "https://www.cursor.com/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Replit",
+    "aliases": [],
+    "tags": [
+      "developer_tools",
+      "ai_infra"
+    ],
+    "stage": "growth",
+    "priority_tier": 2,
+    "careers_url": "https://replit.com/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Docker",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.docker.com/career-openings/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "HashiCorp",
+    "aliases": [],
+    "tags": [
+      "developer_tools",
+      "ai_infra"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.hashicorp.com/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Sentry",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "growth",
+    "priority_tier": 2,
+    "careers_url": "https://sentry.io/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Linear",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "startup",
+    "priority_tier": 2,
+    "careers_url": "https://linear.app/careers",
+    "ats_type": "ashby",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Postman",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.postman.com/company/careers/",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "JetBrains",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 3,
+    "careers_url": "https://www.jetbrains.com/careers/jobs/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "JPMorgan Chase",
+    "aliases": [
+      "JPMorganChase",
+      "J.P. Morgan",
+      "JPMorgan Chase & Co.",
+      "JP Morgan"
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://careers.jpmorgan.com/us/en/home",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Palantir",
+    "aliases": [
+      "Palantir Technologies"
+    ],
+    "tags": [
+      "big_tech",
+      "ai_infra"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://jobs.lever.co/palantir",
+    "ats_type": "lever",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Bloomberg",
+    "aliases": [
+      "Bloomberg LP",
+      "Bloomberg L.P."
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://careers.bloomberg.com/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Goldman Sachs",
+    "aliases": [
+      "Goldman"
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://www.goldmansachs.com/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Capital One",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.capitalonecareers.com/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Morgan Stanley",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://morganstanley.eightfold.ai/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Citi",
+    "aliases": [
+      "Citigroup",
+      "Citibank"
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://jobs.citi.com/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Blackstone",
+    "aliases": [
+      "The Blackstone Group"
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://www.blackstone.com/careers/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "UBS",
+    "aliases": [],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://jobs.ubs.com/",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "BNY",
+    "aliases": [
+      "Bank of New York Mellon",
+      "BNY Mellon"
+    ],
+    "tags": [
+      "fintech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://bnymellon.eightfold.ai/careers",
+    "ats_type": "careers",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Okta",
+    "aliases": [],
+    "tags": [
+      "developer_tools"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://boards.greenhouse.io/okta",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Cloudflare",
+    "aliases": [],
+    "tags": [
+      "developer_tools",
+      "ai_infra"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 1,
+    "careers_url": "https://boards.greenhouse.io/cloudflare",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Datadog",
+    "aliases": [],
+    "tags": [
+      "developer_tools",
+      "ai_infra"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://boards.greenhouse.io/datadog",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  },
+  {
+    "name": "Reddit",
+    "aliases": [],
+    "tags": [
+      "big_tech"
+    ],
+    "stage": "enterprise",
+    "priority_tier": 2,
+    "careers_url": "https://boards.greenhouse.io/reddit",
+    "ats_type": "greenhouse",
+    "reviewed_at": "2026-05-08"
+  }
+]

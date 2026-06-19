@@ -1,0 +1,15 @@
+[
+  {
+    "external_id": "lever-research-engineer",
+    "title": "Research Engineer",
+    "department": "Research",
+    "location_text": "Remote US",
+    "remote_mode": "remote",
+    "employment_type": "full_time",
+    "seniority": "senior",
+    "description_text": "Train and evaluate frontier model systems.",
+    "requirements_text": "PyTorch, evaluation, large-scale experimentation.",
+    "apply_url": "https://jobs.lever.co/example/lever-research-engineer",
+    "source_url": "https://jobs.lever.co/example/lever-research-engineer"
+  }
+]

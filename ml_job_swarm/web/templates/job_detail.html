@@ -1,0 +1,224 @@
+{% extends "base.html" %}
+{% block content %}
+<p><a class="text-link" href="/dashboard?target_profile_id={{ target_profile_id }}">Back to matches</a></p>
+
+<div class="job-detail-shell">
+<article class="job-detail" data-job-id="{{ job.id }}">
+  <header class="job-hero">
+    <div>
+      <p class="eyebrow">Role workspace</p>
+      <h1>{{ job.title }}</h1>
+      <p>{{ job.company_name }}</p>
+    </div>
+    {% if job.label %}
+    <div class="job-hero-score">
+      <span class="fit-label">{{ job.label }}</span>
+      <strong>{{ job.fit_score }}/100</strong>
+    </div>
+    {% endif %}
+  </header>
+
+  <div class="job-detail-grid">
+    <div class="job-detail-main">
+      <section>
+        <h2>Role details</h2>
+        <dl>
+          <dt>Department</dt><dd>{{ job.department or "Not specified" }}</dd>
+          <dt>Location</dt><dd>{{ job.location_text or "Not specified" }}</dd>
+          <dt>Work mode</dt><dd>{{ job.remote_mode or "Not specified" }}</dd>
+          <dt>Employment</dt><dd>{{ job.employment_type or "Not specified" }}</dd>
+          <dt>Seniority</dt><dd>{{ job.seniority or "Not specified" }}</dd>
+          <dt>Status</dt><dd>{{ job.status }}</dd>
+          <dt>Apply</dt><dd>{% if job.apply_url %}<a href="{{ job.apply_url }}" rel="noopener noreferrer" target="_blank">{{ job.apply_url }}</a>{% else %}Not provided{% endif %}</dd>
+          <dt>Source</dt><dd><a href="{{ job.source_url }}" rel="noopener noreferrer" target="_blank">{{ job.source_url }}</a></dd>
+        </dl>
+      </section>
+
+      <section>
+        <h2>Fit review</h2>
+        {% if job.label %}
+        <p>{{ job.label }} - {{ job.fit_score }}/100</p>
+        <p>{{ job.recommendation }}</p>
+        <h3>Reasons</h3>
+        <ul>
+          {% for reason in job.reasons %}
+          <li>{{ reason }}</li>
+          {% else %}
+          <li>No reasons recorded</li>
+          {% endfor %}
+        </ul>
+        <h3>Risks</h3>
+        <ul>
+          {% for risk in job.risks %}
+          <li>{{ risk }}</li>
+          {% else %}
+          <li>No risks recorded</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p>No fit review for this profile version.</p>
+        {% endif %}
+      </section>
+
+      <section>
+        <h2>Description</h2>
+        <p>{{ job.description_text or "No description captured." }}</p>
+      </section>
+
+      <section>
+        <h2>Requirements</h2>
+        <p>{{ job.requirements_text or "No requirements captured." }}</p>
+      </section>
+    </div>
+
+    <aside class="job-detail-side">
+  <section class="decision-card">
+    <h2>Decision</h2>
+    <p>{% if job.decision %}{{ job.decision }}{% else %}Unmarked{% endif %}</p>
+    {% if job.notes %}
+    <p class="job-notes">{{ job.notes }}</p>
+    {% endif %}
+    <form action="/jobs/{{ job.id }}/decision" method="post">
+      <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+      <input type="hidden" name="decision" value="saved">
+      <input type="hidden" name="return_to" value="/jobs/{{ job.id }}?target_profile_id={{ target_profile_id }}">
+      <input type="text" name="notes" value="{{ job.notes }}" placeholder="Notes">
+      <button type="submit">Save</button>
+    </form>
+    <form action="/jobs/{{ job.id }}/decision" method="post">
+      <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+      <input type="hidden" name="decision" value="hidden">
+      <input type="hidden" name="return_to" value="/jobs/{{ job.id }}?target_profile_id={{ target_profile_id }}">
+      <input type="text" name="notes" value="{{ job.notes }}" placeholder="Notes">
+      <button type="submit">Hide</button>
+    </form>
+    {% if job.decision %}
+    <form action="/jobs/{{ job.id }}/decision" method="post">
+      <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+      <input type="hidden" name="decision" value="clear">
+      <input type="hidden" name="return_to" value="/jobs/{{ job.id }}?target_profile_id={{ target_profile_id }}">
+      <button type="submit">Clear</button>
+    </form>
+    {% endif %}
+  </section>
+
+  <section id="application-workspace" class="application-workspace-card">
+    <h2>Application workspace</h2>
+    <p>Prep-only packet for manual final submit.</p>
+    {% if application_packet %}
+    <p>Status: {{ application_packet.status }}</p>
+    {% set packet = application_packet.packet %}
+    <h3>Packet summary</h3>
+    <dl>
+      <dt>Company</dt><dd>{{ packet.company }}</dd>
+      <dt>Role</dt><dd>{{ packet.title }}</dd>
+      <dt>Fit</dt><dd>{% if packet.fit_score is not none %}{{ packet.label }} - {{ packet.fit_score }}/100{% else %}{{ packet.label or "Not reviewed" }}{% endif %}</dd>
+      <dt>Recommendation</dt><dd>{{ packet.recommendation or "Not recorded" }}</dd>
+      <dt>Manual submit URL</dt><dd>{% if packet.apply_url %}<a href="{{ packet.apply_url }}" rel="noopener noreferrer" target="_blank">{{ packet.apply_url }}</a>{% else %}Not provided{% endif %}</dd>
+    </dl>
+    <h4>Packet reasons</h4>
+    <ul>
+      {% for reason in packet.reasons %}
+      <li>{{ reason }}</li>
+      {% else %}
+      <li>No reasons recorded</li>
+      {% endfor %}
+    </ul>
+    <h4>Packet risks</h4>
+    <ul>
+      {% for risk in packet.risks %}
+      <li>{{ risk }}</li>
+      {% else %}
+      <li>No risks recorded</li>
+      {% endfor %}
+    </ul>
+    {% if packet.accepted_resume_rewrites %}
+    <h4>Accepted resume rewrites</h4>
+    <ul>
+      {% for rewrite in packet.accepted_resume_rewrites %}
+      <li>
+        <strong>{{ rewrite.heading or rewrite.section_type or "Resume section" }}</strong>:
+        {{ rewrite.suggestion_text }}
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    <h3>Checklist</h3>
+    <ul>
+      {% for item in application_packet.checklist %}
+      <li>{{ item.label }}{% if item.url %}: <a href="{{ item.url }}" rel="noopener noreferrer" target="_blank">open apply page</a>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    {% if application_packet.status != "submitted" %}
+    <form action="/application-packets/{{ application_packet.id }}/status" method="post">
+      <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+      <input type="hidden" name="status" value="submitted">
+      <button type="submit">Mark submitted manually</button>
+    </form>
+    {% endif %}
+    {% else %}
+    <p>No local application packet yet.</p>
+    {% endif %}
+    {% if not application_packet or application_packet.status != "submitted" %}
+    <form action="/jobs/{{ job.id }}/application-packet" method="post">
+      <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+      <button type="submit">Prepare application packet</button>
+    </form>
+    {% else %}
+    <p>Submitted packet preserved. Update job status only after a new manual submission.</p>
+    {% endif %}
+  </section>
+
+  <section id="linkedin-referrals" class="linkedin-referrals-card">
+    <h2>LinkedIn connections</h2>
+    {% if linkedin_connections %}
+    <ul>
+      {% for contact in linkedin_connections %}
+      <li>
+        <strong>{{ contact.first_name }} {{ contact.last_name }}</strong>
+        {% if contact.position %} - {{ contact.position }}{% endif %}
+        {% if contact.profile_url %}
+        <br><a href="{{ contact.profile_url }}" target="_blank" rel="noopener noreferrer">Open LinkedIn profile</a>
+        {% endif %}
+        {% if contact.connected_on %}<p class="connection-meta">Connected {{ contact.connected_on }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No imported LinkedIn connections matched this company yet.</p>
+    {% endif %}
+    <p><a class="text-link" href="/connections">Import or review connections</a></p>
+  </section>
+
+  <section id="local-referrals" class="local-referrals-card">
+    <h2>Local referral contacts</h2>
+    {% if referral_contacts %}
+    <ul>
+      {% for contact in referral_contacts %}
+      <li>
+        <strong>{{ contact.name }}</strong>
+        {% if contact.title %} - {{ contact.title }}{% endif %}
+        {% if contact.relationship %} ({{ contact.relationship }}){% endif %}
+        {% if contact.email %}<br>{{ contact.email }}{% endif %}
+        {% if contact.notes %}<p>{{ contact.notes }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p>No local referral contacts for this company yet.</p>
+    {% endif %}
+    <form action="/jobs/{{ job.id }}/referral-contacts" method="post">
+      <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+      <label>Name <input type="text" name="name" required></label>
+      <label>Email <input type="email" name="email"></label>
+      <label>Title <input type="text" name="title"></label>
+      <label>Relationship <input type="text" name="relationship"></label>
+      <label>Notes <input type="text" name="notes"></label>
+      <button type="submit">Add local contact</button>
+    </form>
+  </section>
+    </aside>
+  </div>
+</article>
+</div>
+{% endblock %}

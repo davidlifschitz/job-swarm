@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Catalog refresh</p>
+    <h1>Run #{{ run.id }}</h1>
+  </div>
+  <a class="text-link" href="/admin/runs">Back to run history</a>
+</header>
+
+<section class="refresh-summary">
+  <h2>Run summary</h2>
+  <dl>
+    <div><dt>Status</dt><dd>{{ run.status }}</dd></div>
+    <div><dt>Sources</dt><dd>{{ run.source_count }}</dd></div>
+    <div><dt>Jobs seen</dt><dd>{{ run.jobs_seen }}</dd></div>
+    <div><dt>Jobs added</dt><dd>{{ run.jobs_added }}</dd></div>
+    <div><dt>Jobs updated</dt><dd>{{ run.jobs_updated }}</dd></div>
+    <div><dt>Jobs closed</dt><dd>{{ run.jobs_closed }}</dd></div>
+    <div><dt>Started</dt><dd>{{ run.started_at }}</dd></div>
+    <div><dt>Finished</dt><dd>{{ run.finished_at or "running" }}</dd></div>
+    {% if run.error %}
+    <div><dt>Error</dt><dd>{{ run.error }}</dd></div>
+    {% endif %}
+  </dl>
+</section>
+
+<section class="source-table-section">
+  <h2>Source friction</h2>
+  {% if friction_events %}
+  <table>
+    <thead>
+      <tr>
+        <th>Company</th>
+        <th>Source</th>
+        <th>Event</th>
+        <th>Status</th>
+        <th>Details</th>
+        <th>Review</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for event in friction_events %}
+      <tr data-friction-id="{{ event.id }}">
+        <td>{{ event.company }}</td>
+        <td>{{ event.source_url }}</td>
+        <td>{{ event.event_type }}</td>
+        <td>{{ event.status_code }}</td>
+        <td>{{ event.details_json }}</td>
+        <td>{{ event.review_status }}</td>
+        <td>{{ event.created_at }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No source friction for this run.</p>
+  {% endif %}
+</section>
+
+<section class="source-table-section">
+  <h2>Captured jobs</h2>
+  <p class="catalog-freshness">
+    Showing {{ snapshots|length }} of {{ run.snapshot_count }} snapshots.
+  </p>
+  {% if snapshots %}
+  <table>
+    <thead>
+      <tr>
+        <th>Company</th>
+        <th>Role</th>
+        <th>Location</th>
+        <th>Mode</th>
+        <th>External ID</th>
+        <th>Source</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for snapshot in snapshots %}
+      <tr data-snapshot-id="{{ snapshot.id }}">
+        <td>{{ snapshot.company_name }}</td>
+        <td>{{ snapshot.title }}</td>
+        <td>{{ snapshot.location_text or "Not listed" }}</td>
+        <td>{{ snapshot.remote_mode or "Not listed" }}</td>
+        <td>{{ snapshot.external_id or "" }}</td>
+        <td>{{ snapshot.source_url or "" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="empty">No job snapshots for this run.</p>
+  {% endif %}
+</section>
+{% endblock %}

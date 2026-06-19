@@ -1,0 +1,4 @@
+interface:
+  display_name: "Design Spec Assets"
+  short_description: "Persist generated design visuals into this repo's design-specs folder"
+  default_prompt: "Save these generated design visuals into design-specs with descriptive filenames, update the inventory README, and avoid committing local/private artifacts."

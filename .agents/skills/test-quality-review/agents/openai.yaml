@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Quality Review"
+  short_description: "Audit whether tests really prove product behavior"
+  default_prompt: "Review this test plan or test suite for behavioral strength, blind spots, missing tests, overmocking risk, and whether it should block completion."

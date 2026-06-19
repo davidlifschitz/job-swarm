@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Admin audit</h1>
+
+<p><a href="/admin/sources">Back to source health</a></p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Time</th>
+      <th>Actor</th>
+      <th>Action</th>
+      <th>Target</th>
+      <th>Before</th>
+      <th>After</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for event in audit_events %}
+    <tr data-audit-id="{{ event.id }}">
+      <td>{{ event.created_at }}</td>
+      <td>{{ event.actor }}</td>
+      <td>{{ event.action }}</td>
+      <td>{{ event.target_type }} #{{ event.target_id }}</td>
+      <td><code>{{ event.before_json }}</code></td>
+      <td><code>{{ event.after_json }}</code></td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="6">No admin audit events</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

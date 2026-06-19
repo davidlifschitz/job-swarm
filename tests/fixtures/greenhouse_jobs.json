@@ -1,0 +1,28 @@
+[
+  {
+    "external_id": "gh-ml-engineer",
+    "title": "Machine Learning Engineer",
+    "department": "Engineering",
+    "location_text": "San Francisco, CA",
+    "remote_mode": "hybrid",
+    "employment_type": "full_time",
+    "seniority": "mid",
+    "description_text": "Build model-serving systems.",
+    "requirements_text": "Python, distributed systems, machine learning.",
+    "apply_url": "https://boards.greenhouse.io/example/jobs/gh-ml-engineer",
+    "source_url": "https://boards.greenhouse.io/example/jobs/gh-ml-engineer"
+  },
+  {
+    "external_id": "gh-ai-platform",
+    "title": "AI Platform Engineer",
+    "department": "Infrastructure",
+    "location_text": "New York, NY",
+    "remote_mode": "onsite",
+    "employment_type": "full_time",
+    "seniority": "senior",
+    "description_text": "Own platform reliability for AI workloads.",
+    "requirements_text": "Kubernetes, Python, observability.",
+    "apply_url": "https://boards.greenhouse.io/example/jobs/gh-ai-platform",
+    "source_url": "https://boards.greenhouse.io/example/jobs/gh-ai-platform"
+  }
+]

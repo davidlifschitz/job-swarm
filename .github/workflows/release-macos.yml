@@ -1,0 +1,67 @@
+name: Release macOS
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: build-and-release
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Run pytest
+        run: |
+          uv sync --frozen
+          uv run pytest -q
+
+      - name: Determine version
+        id: version
+        run: echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Package release artifacts
+        run: |
+          chmod +x scripts/*.sh
+          ./scripts/package-macos-release.sh "${{ steps.version.outputs.value }}"
+
+      - name: Create GitHub release and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+          DIST="macos/dist"
+          gh release create "${GITHUB_REF_NAME}" \
+            "${DIST}/MLJobSwarm-${VERSION}-macos-arm64.tar.gz" \
+            --title "ML Job Swarm ${GITHUB_REF_NAME}" \
+            --generate-notes
+
+      - name: Bump Homebrew cask
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.value }}"
+          ./scripts/bump-homebrew-cask.sh "${VERSION}" "macos/dist/MLJobSwarm-${VERSION}-macos-arm64.tar.gz"
+
+      - name: Commit Homebrew cask bump to main
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git checkout "${GITHUB_REF_NAME}" -- Casks/ml-job-swarm.rb
+          if git diff --quiet Casks/ml-job-swarm.rb; then
+            echo "Homebrew cask already up to date on main."
+            exit 0
+          fi
+          git add Casks/ml-job-swarm.rb
+          git commit -m "chore(homebrew): bump ml-job-swarm cask to ${{ steps.version.outputs.value }}"
+          git push origin main

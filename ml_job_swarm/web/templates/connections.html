@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Referral network</p>
+    <h1>LinkedIn connections</h1>
+    <p>Import your LinkedIn <code>Connections.csv</code> export locally and match contacts to companies in your job catalog.</p>
+  </div>
+  <div class="page-header-actions">
+    <a class="text-link" href="/dashboard">Back to dashboard</a>
+  </div>
+</header>
+
+<section class="connections-import-panel" aria-label="Import LinkedIn connections">
+  <div>
+    <h2>Import connections</h2>
+    <p>100% local processing. Your connection export never leaves this machine.</p>
+    {% if import_status == "success" %}
+    <p class="flash" role="status">Import complete. New: {{ request.query_params.get('imported', '0') }}, updated: {{ request.query_params.get('updated', '0') }}.</p>
+    {% elif import_status == "invalid" %}
+    <p class="form-error" role="alert">Invalid file. Upload a LinkedIn <code>Connections.csv</code> export.</p>
+    {% elif import_status == "empty" %}
+    <p class="form-error" role="alert">Uploaded file was empty.</p>
+    {% endif %}
+    {% if latest_import %}
+    <p class="catalog-freshness">Last import: {{ latest_import.created_at }} UTC ({{ latest_import.connection_count }} rows)</p>
+    {% endif %}
+  </div>
+  <form action="/connections/import" method="post" enctype="multipart/form-data" class="connections-upload-form">
+    <label>
+      Connections.csv
+      <input type="file" name="connections_file" accept=".csv,text/csv" required>
+    </label>
+    <button type="submit">Import CSV</button>
+  </form>
+</section>
+
+<section class="connections-summary-panel" aria-label="Connection summary">
+  <dl class="dashboard-stat-grid">
+    <div class="dashboard-stat-card">
+      <dt>Stored connections</dt>
+      <dd>{{ connection_count }}</dd>
+    </div>
+    <div class="dashboard-stat-card">
+      <dt>Catalog matches</dt>
+      <dd>{{ matched_catalog|length }}</dd>
+    </div>
+  </dl>
+</section>
+
+{% if matched_catalog %}
+<section class="connections-catalog-matches" aria-label="Matched catalog companies">
+  <h2>Companies in your network</h2>
+  <p>These imported connections match companies already in your local job catalog.</p>
+  <div class="connections-match-grid">
+    {% for match in matched_catalog %}
+    <article class="connections-match-card">
+      <header>
+        <h3>{{ match.company_name }}</h3>
+        <span class="count-pill">{{ match.connections|length }} connection{{ 's' if match.connections|length != 1 else '' }}</span>
+      </header>
+      <ul>
+        {% for contact in match.connections %}
+        <li>
+          <strong>{{ contact.first_name }} {{ contact.last_name }}</strong>
+          {% if contact.position %}<span> - {{ contact.position }}</span>{% endif %}
+          {% if contact.profile_url %}
+          <a href="{{ contact.profile_url }}" target="_blank" rel="noopener noreferrer">Profile</a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<section class="connections-browser" aria-label="Browse imported connections">
+  <header class="connections-browser-header">
+    <h2>Browse by company</h2>
+    <form action="/connections" method="get" class="connections-search-form">
+      <label>
+        Search
+        <input type="search" name="search" value="{{ search_query }}" placeholder="Name, company, or title">
+      </label>
+      <button type="submit">Search</button>
+    </form>
+  </header>
+
+  {% if not grouped_companies %}
+  <p class="empty">No connections imported yet. Upload your LinkedIn export to start matching referral paths.</p>
+  {% endif %}
+
+  {% for group in grouped_companies %}
+  <details class="connections-company-group"{% if loop.index <= 3 %} open{% endif %}>
+    <summary>
+      <span>{{ group.company }}</span>
+      <span class="count-pill">{{ group.connections|length }}</span>
+    </summary>
+    <ul>
+      {% for contact in group.connections %}
+      <li class="connections-person-row">
+        <div>
+          <strong>{{ contact.first_name }} {{ contact.last_name }}</strong>
+          {% if contact.position %}<p>{{ contact.position }}</p>{% endif %}
+          {% if contact.connected_on %}<p class="connection-meta">Connected {{ contact.connected_on }}</p>{% endif %}
+        </div>
+        {% if contact.profile_url %}
+        <a href="{{ contact.profile_url }}" target="_blank" rel="noopener noreferrer">View profile</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </details>
+  {% endfor %}
+</section>
+{% endblock %}

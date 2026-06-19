@@ -1,0 +1,25 @@
+.DS_Store
+.superpowers/
+.ml-job-swarm/
+.env
+.env.*
+.auth/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+jobs.db
+jobs.db-journal
+*.db-shm
+*.db-wal
+
+# macOS app build artifacts (sources and AppIcon.icns are committed)
+macos/MLJobSwarm/.build/
+macos/MLJobSwarm/.swiftpm/
+macos/MLJobSwarm/snapshot-images/
+macos/dist/
+MLJobSwarm-*.tar.gz
+*.xcuserdata
+
+# Local runtime data
+Library/

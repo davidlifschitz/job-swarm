@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ML_JOB_SWARM_DB_PATH: ${{ runner.temp }}/ml-job-swarm/jobs.db
+
+jobs:
+  python-tests:
+    name: python-tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Run pytest
+        run: uv run pytest -q
+
+  macos-build:
+    name: macos-build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Build Swift app binary
+        working-directory: macos/MLJobSwarm
+        run: swift build -c release
+      - name: Package signed app bundle
+        run: |
+          chmod +x scripts/*.sh
+          APP_VERSION=0.0.0-ci INSTALL_DIR="${{ runner.temp }}/dist" ./scripts/build-macos-app.sh
+      - name: Release smoke
+        run: ./scripts/smoke-macos-release.sh "${{ runner.temp }}/dist/MLJobSwarm.app"

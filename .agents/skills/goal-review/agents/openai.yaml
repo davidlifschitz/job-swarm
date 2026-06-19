@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Review"
+  short_description: "Review output against the active thread goal"
+  default_prompt: "Review this output against the active thread goal. Restate the goal, then return verdict, what works, gaps/risks, recommended changes, and decision."

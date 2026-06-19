@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% block content %}
+{% set packet_status_labels = {
+  "not_prepared": "Not prepared",
+  "prepared": "Prepared",
+  "submitted": "Submitted"
+} %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Shortlist</p>
+    <h1>Saved jobs</h1>
+  </div>
+  <div class="page-header-actions">
+    <a class="text-link" href="/dashboard?target_profile_id={{ target_profile_id }}">Back to matches</a>
+    <a class="text-link" href="/dashboard/saved.csv?target_profile_id={{ target_profile_id }}{% if query %}&q={{ query|urlencode }}{% endif %}{% if sort and sort != 'recent' %}&sort={{ sort }}{% endif %}">Export saved CSV</a>
+  </div>
+</header>
+
+<form action="/dashboard/saved" method="get" class="saved-jobs-toolbar">
+  <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+  <label>
+    Search
+    <input type="search" name="q" value="{{ query }}" placeholder="Company, role, note">
+  </label>
+  <label>
+    Sort
+    <select name="sort">
+      <option value="recent"{% if sort == "recent" %} selected{% endif %}>Recent</option>
+      <option value="score"{% if sort == "score" %} selected{% endif %}>Score</option>
+      <option value="company"{% if sort == "company" %} selected{% endif %}>Company</option>
+      <option value="title"{% if sort == "title" %} selected{% endif %}>Title</option>
+    </select>
+  </label>
+  <button type="submit">Apply</button>
+</form>
+
+<section class="saved-jobs-panel">
+{% if saved_jobs %}
+<div class="saved-job-list">
+  {% for job in saved_jobs %}
+  <article class="saved-job-card" data-job-id="{{ job.job_id }}">
+    <header>
+      <div>
+        <p class="saved-job-company">{{ job.company }}</p>
+        <h2><a href="/jobs/{{ job.job_id }}?target_profile_id={{ target_profile_id }}">{{ job.title }}</a></h2>
+      </div>
+      <div class="saved-job-score">
+        <span class="fit-label">{{ job.label }}</span>
+        {% if job.fit_score is not none %}
+        <span class="score-badge">{{ job.fit_score }}</span>
+        {% else %}
+        <span class="status-badge status-badge-unsupported">No score</span>
+        {% endif %}
+      </div>
+    </header>
+    <dl class="saved-job-meta">
+      <div><dt>Recommendation</dt><dd>{{ job.recommendation }}</dd></div>
+      <div>
+        <dt>Application</dt>
+        <dd>
+          {{ packet_status_labels.get(job.packet_status, job.packet_status) }}
+          {% if job.manual_submit_url %}
+          <br><a href="{{ job.manual_submit_url }}" rel="noopener noreferrer" target="_blank">Manual submit</a>
+          {% endif %}
+        </dd>
+      </div>
+      <div><dt>Notes</dt><dd>{{ job.notes or "None" }}</dd></div>
+      <div>
+        <dt>Local contacts</dt>
+        <dd>
+          {% if job.referral_contacts %}
+          <ul>
+            {% for contact in job.referral_contacts %}
+            <li>{{ contact.name }}{% if contact.title %} - {{ contact.title }}{% endif %}</li>
+            {% endfor %}
+          </ul>
+          {% else %}
+          None
+          {% endif %}
+        </dd>
+      </div>
+      <div>
+        <dt>Links</dt>
+        <dd>
+          {% if job.apply_url %}<a href="{{ job.apply_url }}" rel="noopener noreferrer" target="_blank">Apply</a>{% endif %}
+          <a href="{{ job.source_url }}" rel="noopener noreferrer" target="_blank">Source</a>
+        </dd>
+      </div>
+    </dl>
+    <div class="saved-job-actions">
+      <form action="/jobs/{{ job.job_id }}/decision" method="post">
+        <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+        <input type="hidden" name="decision" value="clear">
+        <input type="hidden" name="return_to" value="/dashboard/saved?target_profile_id={{ target_profile_id }}">
+        <button type="submit">Clear</button>
+      </form>
+      {% if job.packet_status != "submitted" %}
+      <form action="/jobs/{{ job.job_id }}/application-packet" method="post">
+        <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+        <button type="submit">Prepare application</button>
+      </form>
+      {% else %}
+      <span class="status-badge status-badge-ready">Submitted</span>
+      {% endif %}
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% elif has_filters and has_saved_jobs %}
+<p class="saved-jobs-empty">No saved jobs match your filters</p>
+{% else %}
+<p class="saved-jobs-empty">No saved jobs</p>
+{% endif %}
+</section>
+{% endblock %}

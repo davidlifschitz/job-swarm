@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block content %}
+{% set target_profile_id = request.query_params.get('target_profile_id') %}
+{% set dashboard_return_to = request.url.path ~ ('?' ~ request.url.query if request.url.query else '') %}
+{% set dashboard_stats = namespace(visible_jobs=0, hidden_jobs=0, mismatch_risks=0, companies_with_connections=0) %}
+{% for company in companies %}
+  {% set dashboard_stats.visible_jobs = dashboard_stats.visible_jobs + (company.visible_jobs|length) %}
+  {% set dashboard_stats.hidden_jobs = dashboard_stats.hidden_jobs + company.hidden_count %}
+  {% set dashboard_stats.mismatch_risks = dashboard_stats.mismatch_risks + company.mismatch_risk_count %}
+  {% if connections_by_company_id.get(company.company_id) %}
+    {% set dashboard_stats.companies_with_connections = dashboard_stats.companies_with_connections + 1 %}
+  {% endif %}
+{% endfor %}
+
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Matching workspace</p>
+    <h1>Job matches</h1>
+    {% if catalog_refreshed_at %}
+    <p class="catalog-freshness">Catalog refreshed: {{ catalog_refreshed_at }} UTC</p>
+    {% else %}
+    <p class="catalog-freshness">Catalog has not been refreshed yet.</p>
+    {% endif %}
+  </div>
+  {% if not onboarding_required %}
+  <div class="page-header-actions">
+    <a class="text-link" href="/connections">LinkedIn connections{% if connection_count %} ({{ connection_count }}){% endif %}</a>
+    <a class="text-link" href="/dashboard/saved?target_profile_id={{ target_profile_id }}">Saved jobs</a>
+    <a class="text-link" href="/dashboard/saved.csv?target_profile_id={{ target_profile_id }}">Export CSV</a>
+  </div>
+  {% endif %}
+</header>
+
+{% if match_summary %}
+<section class="match-summary-panel" aria-label="Match run summary">
+  <h2>{{ match_summary.run_label }} {{ match_summary.status_label }}</h2>
+  <dl>
+    <div><dt>Sources attempted</dt><dd>{{ match_summary.sources_attempted }}</dd></div>
+    <div><dt>Sources succeeded</dt><dd>{{ match_summary.sources_succeeded }}</dd></div>
+    <div><dt>Sources skipped</dt><dd>{{ match_summary.sources_skipped }}</dd></div>
+    <div><dt>Jobs seen</dt><dd>{{ match_summary.jobs_seen }}</dd></div>
+    <div><dt>Jobs closed</dt><dd>{{ match_summary.jobs_closed }}</dd></div>
+    <div><dt>Suspicious empty</dt><dd>{{ match_summary.suspicious_empty }}</dd></div>
+    <div><dt>Reviews created</dt><dd>{{ match_summary.reviews_created }}</dd></div>
+    <div><dt>Review failures</dt><dd>{{ match_summary.review_failures }}</dd></div>
+    <div><dt>Failures</dt><dd>{{ match_summary.failures }}</dd></div>
+    <div><dt>Blocked</dt><dd>{{ match_summary.blocked }}</dd></div>
+  </dl>
+</section>
+{% endif %}
+
+<div class="dashboard-shell">
+  <section class="dashboard-primary" aria-label="Job matches">
+    {% if onboarding_required %}
+    <section class="first-run-empty-state" aria-label="First-run dashboard guide">
+      <p class="section-kicker">First run</p>
+      <h2>Start with your resume and target role</h2>
+      <p class="empty"><a href="/onboarding">Complete preferences before matching.</a></p>
+      <div class="first-run-actions">
+        <a class="primary-link" href="/onboarding">Open onboarding</a>
+        <a class="text-link" href="/admin/sources">Check source health</a>
+      </div>
+      <ol class="readiness-list">
+        <li><strong>Upload resume</strong><span>Store a PDF or DOCX locally and extract profile keywords.</span></li>
+        <li><strong>Set preferences</strong><span>Choose role, level, location, work mode, and company stage.</span></li>
+        <li><strong>Refresh sources</strong><span>Use reviewed public ATS and career-page sources; no LinkedIn or Indeed scraping.</span></li>
+        <li><strong>Review matches</strong><span>LLM fit review is consent-gated and applications stay manual-submit.</span></li>
+      </ol>
+    </section>
+    {% elif not companies %}
+    <section class="first-run-empty-state" aria-label="No matches yet">
+      <p class="section-kicker">No matches yet</p>
+      <h2>Refresh sources and review jobs</h2>
+      <p class="empty">No current matches. Refresh public sources and run fit review to find matches.</p>
+      <p>Source refresh can run without an LLM key. Fit review becomes available when the provider is configured and consent is checked.</p>
+    </section>
+    {% endif %}
+
+    {% if not onboarding_required %}
+    <section class="dashboard-command-center" aria-label="Operator queue">
+      <div class="command-center-copy">
+        <p class="section-kicker">Operator queue</p>
+        <h2>Review the next best matches</h2>
+        <p>Refresh public sources, run fit review with consent, then save or hide each match from one workspace.</p>
+      </div>
+      <dl class="dashboard-stat-grid">
+        <div class="dashboard-stat-card">
+          <dt>Visible matches</dt>
+          <dd>{{ dashboard_stats.visible_jobs }}</dd>
+        </div>
+        <div class="dashboard-stat-card">
+          <dt>Companies</dt>
+          <dd>{{ companies|length }}</dd>
+        </div>
+        <div class="dashboard-stat-card">
+          <dt>Waiting review</dt>
+          <dd>{{ unreviewed_jobs|length }}</dd>
+        </div>
+        <div class="dashboard-stat-card dashboard-stat-card-state">
+          <dt>Fit review</dt>
+          <dd>{% if fit_review_available %}<span class="status-badge status-badge-ready">Fit review ready</span>{% else %}<span class="status-badge status-badge-disabled">Fit review paused</span>{% endif %}</dd>
+        </div>
+        <div class="dashboard-stat-card">
+          <dt>Network matches</dt>
+          <dd>{{ dashboard_stats.companies_with_connections }}</dd>
+        </div>
+      </dl>
+    </section>
+    {% if not fit_review_available %}
+    <section class="llm-status-panel" aria-label="LLM readiness">
+      <h2>LLM fit review unavailable</h2>
+      <p>Public source refresh is available. Configure the fit-review provider before running private match review.</p>
+    </section>
+    {% endif %}
+    <div class="dashboard-actions">
+      <article class="command-card command-card-refresh">
+        <div>
+          <h3>Refresh catalog</h3>
+          <p>Pull reviewed public ATS sources without sending private profile content.</p>
+        </div>
+        <form action="/dashboard/refresh-sources" method="post" class="public-refresh-action">
+          <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+          <button type="submit">Refresh public sources</button>
+        </form>
+      </article>
+      <article class="command-card command-card-match">
+        <div>
+          <h3>Rules + fit review</h3>
+          <p>Refresh sources, apply rules, then ask the configured LLM for profile-specific fit review.</p>
+        </div>
+        <form action="/dashboard/find-matches" method="post" class="find-match-action">
+          <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+          <label>
+            <input type="checkbox" name="llm_consent" value="on">
+            I consent to send job/profile fit-review content to the configured LLM provider.
+          </label>
+          <button type="submit"{% if not fit_review_available %} disabled{% endif %}>Find matches</button>
+        </form>
+      </article>
+      <article class="command-card command-card-review">
+        <div>
+          <h3>Fit review only</h3>
+          <p>Review jobs already in the local catalog for the active target profile.</p>
+        </div>
+        <form action="/dashboard/review-jobs" method="post" class="fit-review-action">
+          <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+          <label>
+            <input type="checkbox" name="llm_consent" value="on">
+            I consent to send job/profile fit-review content to the configured LLM provider.
+          </label>
+          <button type="submit"{% if not fit_review_available %} disabled{% endif %}>Run fit review</button>
+        </form>
+      </article>
+      <nav class="decision-filters" aria-label="Dashboard decision filters">
+        <a href="/dashboard?target_profile_id={{ target_profile_id }}{% if connection_filter == 'with_connections' %}&connection_filter=with_connections{% endif %}" {% if decision_filter == "all" %}aria-current="page"{% endif %}>All</a>
+        <a href="/dashboard?target_profile_id={{ target_profile_id }}&decision_filter=saved{% if connection_filter == 'with_connections' %}&connection_filter=with_connections{% endif %}" {% if decision_filter == "saved" %}aria-current="page"{% endif %}>Saved</a>
+        <a href="/dashboard?target_profile_id={{ target_profile_id }}&decision_filter=unmarked{% if connection_filter == 'with_connections' %}&connection_filter=with_connections{% endif %}" {% if decision_filter == "unmarked" %}aria-current="page"{% endif %}>Unmarked</a>
+        <a href="/dashboard?target_profile_id={{ target_profile_id }}&decision_filter=hidden{% if connection_filter == 'with_connections' %}&connection_filter=with_connections{% endif %}" {% if decision_filter == "hidden" %}aria-current="page"{% endif %}>Hidden</a>
+      </nav>
+      <nav class="connection-filters" aria-label="Dashboard connection filters">
+        <a href="/dashboard?target_profile_id={{ target_profile_id }}{% if decision_filter != 'all' %}&decision_filter={{ decision_filter }}{% endif %}" {% if connection_filter == "all" %}aria-current="page"{% endif %}>All companies</a>
+        <a href="/dashboard?target_profile_id={{ target_profile_id }}&connection_filter=with_connections{% if decision_filter != 'all' %}&decision_filter={{ decision_filter }}{% endif %}" {% if connection_filter == "with_connections" %}aria-current="page"{% endif %}>With connections</a>
+        <a class="text-link" href="/connections">Import connections</a>
+      </nav>
+      <div class="dashboard-links">
+        <a href="/dashboard/saved?target_profile_id={{ target_profile_id }}">View saved jobs</a>
+        <a href="/dashboard/saved.csv?target_profile_id={{ target_profile_id }}">Export saved CSV</a>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if rules_preview_jobs %}
+    <section class="rules-preview-panel" aria-label="Rules preview">
+      <h2>Rules preview</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Role</th>
+            <th>Score</th>
+            <th>Location</th>
+            <th>Mode</th>
+            <th>Signals</th>
+            <th>Risks</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in rules_preview_jobs %}
+          <tr>
+            <td>{{ job.company_name }}</td>
+            <td><a href="/jobs/{{ job.job_id }}?target_profile_id={{ target_profile_id }}">{{ job.title }}</a></td>
+            <td>{{ job.score }}</td>
+            <td>{{ job.location_text or "Not listed" }}</td>
+            <td>{{ job.remote_mode or "Not listed" }}</td>
+            <td>{{ job.reasons|join(", ") }}</td>
+            <td>{{ job.risks|join(", ") if job.risks else "" }}</td>
+            <td>
+              <form action="/jobs/{{ job.job_id }}/decision" method="post">
+                <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+                <input type="hidden" name="decision" value="saved">
+                <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+                <button type="submit">Save</button>
+              </form>
+              <form action="/jobs/{{ job.job_id }}/decision" method="post">
+                <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+                <input type="hidden" name="decision" value="hidden">
+                <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+                <button type="submit">Hide</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {% if unreviewed_jobs %}
+    <section class="unreviewed-jobs-panel" aria-label="Jobs waiting for fit review">
+      <h2>Jobs waiting for fit review</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Company</th>
+            <th>Role</th>
+            <th>Location</th>
+            <th>Mode</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in unreviewed_jobs %}
+          <tr>
+            <td>{{ job.company_name }}</td>
+            <td><a href="/jobs/{{ job.job_id }}?target_profile_id={{ target_profile_id }}">{{ job.title }}</a></td>
+            <td>{{ job.location_text or "Not listed" }}</td>
+            <td>{{ job.remote_mode or "Not listed" }}</td>
+            <td>
+              <form action="/jobs/{{ job.job_id }}/decision" method="post">
+                <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+                <input type="hidden" name="decision" value="saved">
+                <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+                <button type="submit">Save</button>
+              </form>
+              <form action="/jobs/{{ job.job_id }}/decision" method="post">
+                <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+                <input type="hidden" name="decision" value="hidden">
+                <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+                <button type="submit">Hide</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    {% endif %}
+
+    {% for company in companies %}
+    {% set company_connections = connections_by_company_id.get(company.company_id, []) %}
+    <section class="company-group{% if company_connections %} company-group-has-connections{% endif %}">
+      <header>
+        <div>
+          <h2>{{ company.name }}</h2>
+          {% if company_connections %}
+          <p class="company-connection-hint">
+            {{ company_connections|length }} LinkedIn connection{{ 's' if company_connections|length != 1 else '' }}:
+            {{ company_connections[:3]|map(attribute='first_name')|list|join(', ') }}{% if company_connections|length > 3 %} +{{ company_connections|length - 3 }} more{% endif %}
+          </p>
+          {% endif %}
+        </div>
+        <div class="company-group-badges">
+          {% if company_connections %}
+          <span class="connection-badge">Referral path</span>
+          {% endif %}
+          <span class="count-pill">{{ company.visible_jobs|length }} visible</span>
+        </div>
+      </header>
+      <table>
+        <thead>
+          <tr>
+            <th>Role</th>
+            <th>Fit</th>
+            <th>Score</th>
+            <th>Recommendation</th>
+            <th>Decision</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for job in company.visible_jobs %}
+          <tr class="job-row" data-job-decision="{{ job.decision or '' }}"><td><a href="/jobs/{{ job.job_id }}?target_profile_id={{ request.query_params.get('target_profile_id') }}">{{ job.title }}</a>{% if job.notes %}<p class="job-notes">{{ job.notes }}</p>{% endif %}</td><td><span class="fit-label">{{ job.label }}</span></td><td><span class="score-badge">{{ job.fit_score }}</span></td><td>{{ job.recommendation }}</td><td>{% if job.decision == "saved" %}Saved{% elif job.decision == "hidden" %}Hidden{% else %}Unmarked{% endif %}</td><td>
+            <form action="/jobs/{{ job.job_id }}/decision" method="post">
+              <input type="hidden" name="target_profile_id" value="{{ request.query_params.get('target_profile_id') }}">
+              <input type="hidden" name="decision" value="saved">
+              <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+              <input type="text" name="notes" value="{{ job.notes }}" placeholder="Notes">
+              <button type="submit">Save</button>
+            </form>
+            <form action="/jobs/{{ job.job_id }}/decision" method="post">
+              <input type="hidden" name="target_profile_id" value="{{ request.query_params.get('target_profile_id') }}">
+              <input type="hidden" name="decision" value="hidden">
+              <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+              <input type="text" name="notes" value="{{ job.notes }}" placeholder="Notes">
+              <button type="submit">Hide</button>
+            </form>
+            {% if job.decision %}
+            <form action="/jobs/{{ job.job_id }}/decision" method="post">
+              <input type="hidden" name="target_profile_id" value="{{ request.query_params.get('target_profile_id') }}">
+              <input type="hidden" name="decision" value="clear">
+              <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+              <button type="submit">Clear</button>
+            </form>
+            {% endif %}
+          </td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if company.mismatch_risk_count %}
+      <details class="mismatch-risks">
+        <summary>{{ company.mismatch_risk_count }} mismatch risk</summary>
+        <ul>
+          {% for job in company.mismatch_risk_jobs %}
+          <li><a href="/jobs/{{ job.job_id }}?target_profile_id={{ request.query_params.get('target_profile_id') }}">{{ job.title }}</a> - {{ job.fit_score }}{% if job.risks %} <span class="job-risks">{{ job.risks|join(", ") }}</span>{% endif %}</li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+      {% if company.hidden_count %}
+      <details class="hidden-jobs">
+        <summary>{{ company.hidden_count }} Hidden by you</summary>
+        <ul>
+          {% for job in company.hidden_jobs %}
+          <li data-job-decision="{{ job.decision }}"><a href="/jobs/{{ job.job_id }}?target_profile_id={{ request.query_params.get('target_profile_id') }}">{{ job.title }}</a> - {{ job.fit_score }}
+            {% if job.notes %}<p class="job-notes">{{ job.notes }}</p>{% endif %}
+            <form action="/jobs/{{ job.job_id }}/decision" method="post">
+              <input type="hidden" name="target_profile_id" value="{{ request.query_params.get('target_profile_id') }}">
+              <input type="hidden" name="decision" value="clear">
+              <input type="hidden" name="return_to" value="{{ dashboard_return_to }}">
+              <button type="submit">Clear</button>
+            </form>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+      {% if company.filtered_out_count %}
+      <p class="filtered">{{ company.filtered_out_count }} filtered out</p>
+      {% endif %}
+    </section>
+    {% endfor %}
+  </section>
+
+  <aside class="dashboard-sidebar" aria-label="Profile and resume workspace">
+    {% if profile_summary %}
+    <section class="profile-summary">
+      <h2>Profile summary</h2>
+      <p>{{ profile_summary.name }} - Version {{ profile_summary.version }}</p>
+      {% if profile_summary.resume_filename %}
+      <p>Resume: {{ profile_summary.resume_filename }}</p>
+      {% endif %}
+      <dl>
+        <dt>Titles</dt><dd>{{ profile_summary.desired_titles|join(", ") or "Not specified" }}</dd>
+        <dt>Level</dt><dd>{{ profile_summary.levels|join(", ") or "Not specified" }}</dd>
+        <dt>Location</dt><dd>{{ profile_summary.locations|join(", ") or "Not specified" }}</dd>
+        <dt>Work mode</dt><dd>{{ profile_summary.remote_modes|join(", ") or "Not specified" }}</dd>
+        <dt>Company stage</dt><dd>{{ profile_summary.company_stages|join(", ") or "Not specified" }}</dd>
+      </dl>
+      {% if target_profile_id %}
+      <form action="/preferences/{{ target_profile_id }}" method="post" class="preference-edit-form">
+        <label>Role
+          <input name="role" autocomplete="off" value="{{ profile_summary.desired_titles[0] if profile_summary.desired_titles else '' }}">
+        </label>
+        <label>Level
+          <input name="level" autocomplete="off" value="{{ profile_summary.levels[0] if profile_summary.levels else '' }}">
+        </label>
+        <label>Location
+          <input name="location" autocomplete="off" value="{{ profile_summary.locations[0] if profile_summary.locations else '' }}">
+        </label>
+        <label>Work mode
+          <input name="work_mode" autocomplete="off" value="{{ profile_summary.remote_modes[0] if profile_summary.remote_modes else '' }}">
+        </label>
+        <label>Company stage
+          <input name="company_stage" autocomplete="off" value="{{ profile_summary.company_stages[0] if profile_summary.company_stages else '' }}">
+        </label>
+        <button type="submit">Update target</button>
+      </form>
+      {% endif %}
+      <h3>Resume keywords</h3>
+      {% if profile_summary.keywords %}
+      <ul class="keyword-list">
+        {% for keyword in profile_summary.keywords %}
+        <li>{{ keyword }}</li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <p>No resume keywords captured</p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if resume_sections %}
+    <section class="resume-workspace">
+      <h2>Resume workspace</h2>
+      <div class="resume-sections">
+        {% for section in resume_sections %}
+        <article class="resume-section" data-section-id="{{ section.id }}">
+          <button type="button" data-section-id="{{ section.id }}">{{ section.heading or section.section_type }}</button>
+          <p>{{ section.text }}</p>
+          {% if target_profile_id %}
+          <form action="/resume/rewrite" method="post" class="resume-rewrite-form">
+            <input type="hidden" name="section_id" value="{{ section.id }}">
+            <input type="hidden" name="target_profile_id" value="{{ target_profile_id }}">
+            <label>
+              <input type="checkbox" name="llm_consent" value="on">
+              I consent to send this resume section to the configured LLM provider.
+            </label>
+            <button type="submit">Rewrite section</button>
+          </form>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if resume_suggestions %}
+    <section class="resume-suggestions">
+      <h2>Resume suggestions</h2>
+      {% for suggestion in resume_suggestions %}
+      <article data-suggestion-id="{{ suggestion.id }}">
+        <h3>{{ suggestion.heading or suggestion.section_type }}</h3>
+        <p>{{ suggestion.suggestion_text }}</p>
+        <p>Status: {{ suggestion.status }}</p>
+        {% if suggestion.status == "draft" %}
+        <form action="/resume/suggestions/{{ suggestion.id }}/accept" method="post">
+          <input type="hidden" name="target_profile_id" value="{{ request.query_params.get('target_profile_id') }}">
+          <button type="submit">Accept</button>
+        </form>
+        <form action="/resume/suggestions/{{ suggestion.id }}/reject" method="post">
+          <input type="hidden" name="target_profile_id" value="{{ request.query_params.get('target_profile_id') }}">
+          <button type="submit">Reject</button>
+        </form>
+        {% endif %}
+      </article>
+      {% endfor %}
+    </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

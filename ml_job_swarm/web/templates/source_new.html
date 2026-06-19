@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Add company source</h1>
+
+<form action="/sources/new" method="get">
+  <label>
+    Company name
+    <input type="text" name="company_name" value="{{ company_name or '' }}" required>
+  </label>
+  <label>
+    Careers URL
+    <input type="url" name="source_url" value="{{ source_url or '' }}" required>
+  </label>
+  <button type="submit">Preview source</button>
+</form>
+
+{% if preflight %}
+<section class="source-summary-panel" aria-label="Source preflight">
+  <h2>Source preflight</h2>
+  <dl>
+    <div><dt>Policy</dt><dd>{{ preflight.policy_label }}</dd></div>
+    <div><dt>Normalized URL</dt><dd>{{ preflight.normalized_url }}</dd></div>
+    <div><dt>Inferred type</dt><dd>{{ preflight.inferred_source_type }}</dd></div>
+    <div><dt>Refreshability</dt><dd>{{ preflight.support_label }}</dd></div>
+  </dl>
+  {% if preflight.can_queue %}
+  <form action="/sources/new" method="post">
+    <input type="hidden" name="company_name" value="{{ preflight.company_name }}">
+    <input type="hidden" name="source_url" value="{{ preflight.normalized_url }}">
+    <button type="submit">Queue for admin review</button>
+  </form>
+  {% else %}
+  <p class="empty">{{ preflight.support_label }}</p>
+  {% endif %}
+</section>
+{% endif %}
+
+<p><a href="/admin/sources">Back to source health</a></p>
+{% endblock %}
