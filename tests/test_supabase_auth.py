@@ -26,17 +26,24 @@ def _auth_env(monkeypatch) -> None:
     monkeypatch.setenv("SUPABASE_JWT_SECRET", JWT_SECRET)
 
 
-def test_supabase_config_from_env_requires_all_values():
+def test_supabase_config_from_env_requires_url_and_anon_key():
     assert supabase_config_from_env({}) is None
     assert (
         supabase_config_from_env(
             {
                 "SUPABASE_URL": "https://example.supabase.co",
-                "SUPABASE_ANON_KEY": "anon",
             }
         )
         is None
     )
+    config = supabase_config_from_env(
+        {
+            "SUPABASE_URL": "https://example.supabase.co",
+            "SUPABASE_ANON_KEY": "sb_publishable_example",
+        }
+    )
+    assert config is not None
+    assert config.jwt_secret is None
 
 
 def test_validate_access_token_accepts_authenticated_audience():

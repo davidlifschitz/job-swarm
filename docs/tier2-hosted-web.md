@@ -19,11 +19,12 @@ Public macOS installs remain Tier 1 ([tier1-macos-release.md](tier1-macos-releas
 
 1. Create a project at [supabase.com](https://supabase.com).
 2. Enable **Email** provider (password sign-in).
-3. Copy from **Project Settings → API**:
-   - `SUPABASE_URL`
-   - `SUPABASE_ANON_KEY`
-4. Copy **JWT Secret** from **Project Settings → API → JWT Settings**:
-   - `SUPABASE_JWT_SECRET`
+3. Copy from **Project Settings → API Keys**:
+   - `SUPABASE_URL` (project URL)
+   - `SUPABASE_ANON_KEY` — the **publishable** key (`sb_publishable_...`), not the secret key
+4. JWT verification:
+   - **New projects (JWT signing keys / ES256):** leave `SUPABASE_JWT_SECRET` unset; the app verifies tokens via JWKS
+   - **Legacy projects (HS256):** set `SUPABASE_JWT_SECRET` from **JWT Settings**
 
 ### 2. Railway
 
