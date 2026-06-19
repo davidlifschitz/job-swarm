@@ -18,7 +18,7 @@ jobs:
     name: python-tests
     runs-on: ubuntu-latest
     env:
-      ML_JOB_SWARM_DB_PATH: ${{ runner.temp }}/ml-job-swarm/jobs.db
+      ML_JOB_SWARM_DB_PATH: /tmp/ml-job-swarm/jobs.db
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -46,6 +46,6 @@ jobs:
       - name: Package signed app bundle
         run: |
           chmod +x scripts/*.sh
-          APP_VERSION=0.0.0-ci INSTALL_DIR="${{ runner.temp }}/dist" ./scripts/build-macos-app.sh
+          APP_VERSION=0.0.0-ci INSTALL_DIR="/tmp/dist" ./scripts/build-macos-app.sh
       - name: Release smoke
-        run: ./scripts/smoke-macos-release.sh "${{ runner.temp }}/dist/MLJobSwarm.app"
+        run: ./scripts/smoke-macos-release.sh "/tmp/dist/MLJobSwarm.app"
