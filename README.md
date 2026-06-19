@@ -87,7 +87,7 @@ open ~/Applications/MLJobSwarm.app
 
 The release artifact bundles its own Python virtualenv. [uv](https://docs.astral.sh/uv/) is only required when building from source.
 
-**Maintainers:** see [docs/tier1-macos-release.md](docs/tier1-macos-release.md) for CI, smoke tests, and Homebrew cask bumps. Tag `v*.*.*` to trigger a GitHub Release build.
+**Maintainers:** Tier 1 distribution is complete — see [docs/tier1-macos-release.md](docs/tier1-macos-release.md) and [docs/product-tiers.md](docs/product-tiers.md). Tag `v*.*.*` on `main` to publish a new macOS release and bump the Homebrew cask.
 
 ## Run Locally (web)
 

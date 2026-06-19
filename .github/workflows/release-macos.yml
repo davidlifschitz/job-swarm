@@ -33,20 +33,17 @@ jobs:
           chmod +x scripts/*.sh
           ./scripts/package-macos-release.sh "${{ steps.version.outputs.value }}"
 
-      - name: Create GitHub release and upload assets
+      - name: Publish GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.value }}"
-          DIST="macos/dist"
-          gh release create "${GITHUB_REF_NAME}" \
-            "${DIST}/MLJobSwarm-${VERSION}-macos-arm64.tar.gz" \
-            --title "ML Job Swarm ${GITHUB_REF_NAME}" \
-            --generate-notes
+          ./scripts/publish-github-release.sh \
+            "${GITHUB_REF_NAME}" \
+            "macos/dist/MLJobSwarm-${VERSION}-macos-arm64.tar.gz" \
+            "ML Job Swarm ${GITHUB_REF_NAME}"
 
       - name: Bump Homebrew cask
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.value }}"
           ./scripts/bump-homebrew-cask.sh "${VERSION}" "macos/dist/MLJobSwarm-${VERSION}-macos-arm64.tar.gz"

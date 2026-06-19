@@ -1,0 +1,35 @@
+# Product distribution tiers
+
+| Tier | Goal | Status |
+|------|------|--------|
+| 1 | GitHub downloaders — macOS app anyone can install | **Complete** |
+| 2 | Hosted webapp (Vercel/Supabase or similar) | Not started |
+| 3 | App Store (Apple + Android) | Not started |
+
+## Tier 1 — complete
+
+Public distribution lives in [davidlifschitz/job-swarm](https://github.com/davidlifschitz/job-swarm).
+
+**Install**
+
+```bash
+brew tap davidlifschitz/job-swarm https://github.com/davidlifschitz/job-swarm
+brew trust davidlifschitz/job-swarm
+brew install --cask ml-job-swarm
+```
+
+**Maintainer release**
+
+1. `uv run pytest -q`
+2. Tag `v*.*.*` on `main`
+3. GitHub Actions builds tar.gz, publishes the release, and bumps `Casks/ml-job-swarm.rb` on `main`
+
+See [tier1-macos-release.md](tier1-macos-release.md) for details.
+
+## Tier 2 — hosted web
+
+Deploy the existing FastAPI web UI and cloud runtime to a public URL with auth and persistent storage. Start from [cloud-production-server-goals.md](cloud-production-server-goals.md).
+
+## Tier 3 — app stores
+
+Notarized macOS builds + Apple Developer account; separate Android strategy or PWA.
