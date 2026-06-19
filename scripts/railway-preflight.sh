@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-deploy checks for Railway hosted Tier 2 Phase A.
+# Pre-deploy checks for Railway hosted Tier 2 (Phase A SQLite or Phase B Postgres).
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -27,7 +27,11 @@ container_id="$(
     "${IMAGE}"
 )"
 
+pg_id=""
+pg_container_id=""
 cleanup() {
+  docker stop "${pg_container_id}" >/dev/null 2>&1 || true
+  docker stop "${pg_id}" >/dev/null 2>&1 || true
   docker stop "${container_id}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -65,6 +69,43 @@ PY
 )"
 echo "==> Running hosted smoke checks (authenticated)"
 ./scripts/smoke-hosted.sh "${base_url}" "${token}"
+
+if [[ "${PREFLIGHT_POSTGRES:-}" == "1" ]]; then
+  echo "==> Starting Postgres sidecar for Phase B preflight"
+  pg_id="$(docker run -d --rm -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=jobs -p 55431:5432 postgres:16-alpine)"
+  deadline=$((SECONDS + 30))
+  until docker exec "${pg_id}" pg_isready -U postgres >/dev/null 2>&1; do
+    if (( SECONDS >= deadline )); then
+      echo "Postgres sidecar failed to start" >&2
+      exit 1
+    fi
+    sleep 1
+  done
+  pg_url="postgresql://postgres:postgres@host.docker.internal:55431/jobs"
+  pg_container_id="$(
+    docker run -d --rm \
+      -p "$((PORT + 1)):$((PORT + 1))" \
+      -e PORT="$((PORT + 1))" \
+      -e DATABASE_URL="${pg_url}" \
+      -e SUPABASE_URL=https://example.supabase.co \
+      -e SUPABASE_SERVICE_ROLE_KEY=preflight-service-role \
+      -e ML_JOB_SWARM_RESUME_STORAGE_BUCKET=resume-assets \
+      --add-host=host.docker.internal:host-gateway \
+      "${IMAGE}"
+  )"
+  pg_base_url="http://127.0.0.1:$((PORT + 1))"
+  deadline=$((SECONDS + 60))
+  until curl -fsS "${pg_base_url}/healthz" >/dev/null 2>&1; do
+    if (( SECONDS >= deadline )); then
+      echo "Postgres preflight container failed to become healthy" >&2
+      docker logs "${pg_container_id}" >&2 || true
+      exit 1
+    fi
+    sleep 1
+  done
+  echo "==> Running Postgres cutover smoke (expect postgresql + supabase storage mode)"
+  ML_JOB_SWARM_EXPECT_POSTGRES=1 ./scripts/smoke-postgres-cutover.sh "${pg_base_url}" "${token}"
+fi
 
 echo
 echo "Preflight passed. Next steps for Railway go-live:"

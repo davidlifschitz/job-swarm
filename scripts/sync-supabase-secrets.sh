@@ -49,6 +49,7 @@ keys_json="$(supabase projects api-keys --project-ref "${PROJECT_REF}" -o json)"
 eval "$(python3 - <<'PY' "${keys_json}" "${PROJECT_REF}" "${OUT_FILE}"
 import json
 import sys
+from pathlib import Path
 
 raw = sys.argv[1]
 project_ref = sys.argv[2]
@@ -90,7 +91,15 @@ if secret_meta:
     lines.append(f"# SUPABASE_SECRET_KEY is masked by CLI; copy full value from dashboard if needed")
     lines.append(f"SUPABASE_SECRET_KEY_REF={secret_meta}")
 
-from pathlib import Path
+pooler_path = Path(__file__).resolve().parent.parent / "supabase" / ".temp" / "pooler-url"
+if pooler_path.is_file():
+    pooler = pooler_path.read_text(encoding="utf-8").strip()
+    if pooler.startswith("postgresql://") and "@" in pooler:
+        prefix, suffix = pooler.split("@", 1)
+        user = prefix.removeprefix("postgresql://")
+        lines.append("# Session pooler template (insert DB password from dashboard)")
+        lines.append(f"# DATABASE_URL=postgresql://{user}:[PASSWORD]@{suffix}")
+
 Path(out_file).write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 print(f'export SUPABASE_URL="{url}"')

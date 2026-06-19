@@ -3,8 +3,8 @@
 | Tier | Goal | Status |
 |------|------|--------|
 | 1 | GitHub downloaders — macOS app anyone can install | **Complete** |
-| 2 | Hosted webapp (Railway + Supabase) | **Phase A complete** (Phase B next) |
-| 3 | App Store (Apple + Android) | Not started |
+| 2 | Hosted webapp (Railway + Supabase) | **Phase B code complete** (production cutover pending) |
+| 3 | App Store (Apple + Android) | **Planned** — see [tier3-app-stores.md](tier3-app-stores.md) |
 
 ## Tier 1 — complete
 
@@ -26,14 +26,18 @@ brew install --cask ml-job-swarm
 
 See [tier1-macos-release.md](tier1-macos-release.md) for details.
 
-## Tier 2 — hosted web (Phase A complete)
+## Tier 2 — hosted web
 
-Deploy the FastAPI web UI and cloud runtime to Railway with Supabase Auth and a persistent volume for SQLite.
+Deploy the FastAPI web UI and cloud runtime to Railway with Supabase Auth.
 
-**Phase A (complete):** Railway + Supabase Auth + volume-backed SQLite + per-user isolation — see [tier2-hosted-web.md](tier2-hosted-web.md).
+**Phase A (complete):** Railway + Supabase Auth + volume-backed SQLite + per-user isolation.
 
-**Phase B:** Supabase Postgres + Storage — see [cloud-production-server-goals.md](cloud-production-server-goals.md).
+**Phase B (code complete):** Supabase Postgres + Storage, migration tooling (`migrate-hosted`), cutover smoke — see [tier2-hosted-web.md](tier2-hosted-web.md).
+
+**Production cutover:** set `DATABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` on Railway web + worker, run `./scripts/railway-cutover.sh`, verify with `smoke-postgres-cutover.sh`.
+
+Cloud SLO hardening remains in [cloud-production-server-goals.md](cloud-production-server-goals.md).
 
 ## Tier 3 — app stores
 
-Notarized macOS builds + Apple Developer account; separate Android strategy or PWA.
+Notarized macOS + Apple Developer Program; Android native or installable PWA. See [tier3-app-stores.md](tier3-app-stores.md).

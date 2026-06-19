@@ -34,6 +34,46 @@ jobs:
       - name: Run pytest
         run: uv run pytest -q
 
+  postgres-tests:
+    name: postgres-tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: jobs
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d jobs"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ML_JOB_SWARM_TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/jobs
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Run Postgres integration tests
+        run: |
+          uv run pytest \
+            tests/test_postgres_schema.py \
+            tests/test_cloud_runtime_postgres.py \
+            tests/test_per_user_postgres.py \
+            tests/test_catalog_postgres.py \
+            tests/test_ingest_postgres.py \
+            tests/test_hosted_migration.py \
+            tests/test_hosted_cutover.py \
+            -q
+
   macos-build:
     name: macos-build
     runs-on: macos-14
