@@ -54,11 +54,7 @@ Add a second Railway service from the same repo/image:
 
 1. Mount the **same volume** at `/data` (shared SQLite queue).
 2. Set the same env vars as the web service (`ML_JOB_SWARM_DATA_DIR`, Supabase keys if needed).
-3. Override the start command:
-
-```bash
-./scripts/start-cloud-worker.sh
-```
+3. Set `ML_JOB_SWARM_PROCESS=worker` (the image routes via `./scripts/start-railway.sh`).
 
 `--max-runs 0` drains queued cloud runs in a loop (daemon mode). Alternatively, invoke `POST /api/cloud/worker/run-next` from a cron on the web service.
 
