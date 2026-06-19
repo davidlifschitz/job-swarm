@@ -207,14 +207,6 @@ def _plan_resume_migration(
 ) -> tuple[list[ResumeMigrationSummary], dict[int, str]]:
     local_storage = LocalResumeStorage(asset_dir=asset_dir)
     remote_storage = None
-    if not dry_run:
-        backend = resume_storage_from_env(env, asset_dir=asset_dir)
-        if not isinstance(backend, SupabaseResumeStorage):
-            raise HostedMigrationError(
-                "Resume file migration requires Supabase storage configuration"
-            )
-        remote_storage = backend
-
     summaries: list[ResumeMigrationSummary] = []
     overrides: dict[int, str] = {}
     rows = sqlite_conn.execute(
@@ -224,6 +216,19 @@ def _plan_resume_migration(
         ORDER BY id
         """
     ).fetchall()
+    pending_local_resumes = [
+        row
+        for row in rows
+        if str(row["storage_path"] or "").startswith(RESUME_ASSET_URI_PREFIX)
+    ]
+    if not dry_run and pending_local_resumes:
+        backend = resume_storage_from_env(env, asset_dir=asset_dir)
+        if not isinstance(backend, SupabaseResumeStorage):
+            raise HostedMigrationError(
+                "Resume file migration requires Supabase storage configuration"
+            )
+        remote_storage = backend
+
     for row in rows:
         storage_uri = str(row["storage_path"] or "")
         if storage_uri.startswith(SUPABASE_RESUME_URI_PREFIX):

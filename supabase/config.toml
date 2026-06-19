@@ -1,5 +1,4 @@
-[project]
-id = "qyxrbcbmatbaywyjrtug"
+project_id = "qyxrbcbmatbaywyjrtug"
 
 [db]
 major_version = 15
