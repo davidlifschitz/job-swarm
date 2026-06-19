@@ -2,8 +2,16 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Mapping
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
+
+from ml_job_swarm.db.protocol import Database
+
+StoreConnection = sqlite3.Connection | Database
+
+CLOUD_RUN_QUEUE_ORDER = "created_at ASC, id ASC"
 
 from ml_job_swarm.source_policy import SourcePolicyResult, classify_source_url
 
@@ -70,7 +78,7 @@ class ManualFinalSubmitBlocked(CloudRuntimeError):
 
 
 def create_run(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     user_id: str,
     requested_action: str,
@@ -145,7 +153,7 @@ def create_run(
 
 
 def find_run_by_idempotency_key(
-    conn: sqlite3.Connection, user_id: str, idempotency_key: str | None
+    conn: StoreConnection, user_id: str, idempotency_key: str | None
 ) -> dict[str, object] | None:
     if not idempotency_key:
         return None
@@ -161,14 +169,14 @@ def find_run_by_idempotency_key(
     return _run_from_row(row) if row is not None else None
 
 
-def get_run(conn: sqlite3.Connection, run_id: str) -> dict[str, object]:
+def get_run(conn: StoreConnection, run_id: str) -> dict[str, object]:
     row = conn.execute("SELECT * FROM cloud_runs WHERE id = ?", (run_id,)).fetchone()
     if row is None:
         raise RunNotFound(run_id)
     return _run_from_row(row)
 
 
-def list_run_events(conn: sqlite3.Connection, run_id: str) -> list[dict[str, object]]:
+def list_run_events(conn: StoreConnection, run_id: str) -> list[dict[str, object]]:
     get_run(conn, run_id)
     rows = conn.execute(
         """
@@ -182,22 +190,22 @@ def list_run_events(conn: sqlite3.Connection, run_id: str) -> list[dict[str, obj
     return [_event_from_row(row) for row in rows]
 
 
-def list_runs(conn: sqlite3.Connection, *, user_id: str | None = None) -> list[dict[str, object]]:
+def list_runs(conn: StoreConnection, *, user_id: str | None = None) -> list[dict[str, object]]:
     if user_id is None:
         rows = conn.execute(
-            """
+            f"""
             SELECT *
             FROM cloud_runs
-            ORDER BY created_at ASC, rowid ASC
+            ORDER BY {CLOUD_RUN_QUEUE_ORDER}
             """
         ).fetchall()
     else:
         rows = conn.execute(
-            """
+            f"""
             SELECT *
             FROM cloud_runs
             WHERE user_id = ?
-            ORDER BY created_at ASC, rowid ASC
+            ORDER BY {CLOUD_RUN_QUEUE_ORDER}
             """,
             (user_id,),
         ).fetchall()
@@ -205,7 +213,7 @@ def list_runs(conn: sqlite3.Connection, *, user_id: str | None = None) -> list[d
 
 
 def get_run_for_user(
-    conn: sqlite3.Connection, run_id: str, *, user_id: str
+    conn: StoreConnection, run_id: str, *, user_id: str
 ) -> dict[str, object]:
     run = get_run(conn, run_id)
     if str(run["user_id"]) != user_id:
@@ -214,7 +222,7 @@ def get_run_for_user(
 
 
 def record_run_stage_result(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     stage: str,
@@ -247,7 +255,7 @@ def record_run_stage_result(
 
 
 def complete_run(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     result: dict[str, object] | None = None,
@@ -279,7 +287,7 @@ def complete_run(
 
 
 def fail_run(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     error_code: str,
@@ -309,7 +317,7 @@ def fail_run(
     return get_run(conn, run_id)
 
 
-def build_runtime_readiness_report(conn: sqlite3.Connection) -> dict[str, object]:
+def build_runtime_readiness_report(conn: StoreConnection) -> dict[str, object]:
     runs = list_runs(conn)
     run_counts = {status: 0 for status in sorted(RUN_STATUSES)}
     for run in runs:
@@ -369,7 +377,7 @@ def compare_runtime_parity(
 
 
 def evaluate_source_for_run(
-    conn: sqlite3.Connection, run_id: str, url: str
+    conn: StoreConnection, run_id: str, url: str
 ) -> dict[str, object]:
     run = get_run(conn, run_id)
     policy = classify_source_url(url)
@@ -434,7 +442,7 @@ def evaluate_source_for_run(
 
 
 def record_prepared_packet(
-    conn: sqlite3.Connection, run_id: str, packet_manifest: dict[str, object]
+    conn: StoreConnection, run_id: str, packet_manifest: dict[str, object]
 ) -> dict[str, object]:
     missing = sorted(REQUIRED_PACKET_MANIFEST_FIELDS - packet_manifest.keys())
     if missing:
@@ -468,7 +476,7 @@ def record_prepared_packet(
 
 
 def create_manual_final_submit_instruction(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     packet_id: str | None = None,
@@ -509,7 +517,7 @@ def create_manual_final_submit_instruction(
 
 
 def record_run_heartbeat(
-    conn: sqlite3.Connection, run_id: str, *, stage: str | None = None
+    conn: StoreConnection, run_id: str, *, stage: str | None = None
 ) -> dict[str, object]:
     run = get_run(conn, run_id)
     heartbeat_stage = stage or str(run["current_stage"])
@@ -538,7 +546,7 @@ def record_run_heartbeat(
 
 
 def cancel_run(
-    conn: sqlite3.Connection, run_id: str, *, reason: str | None = None
+    conn: StoreConnection, run_id: str, *, reason: str | None = None
 ) -> dict[str, object]:
     run = get_run(conn, run_id)
     now = _now()
@@ -566,7 +574,7 @@ def cancel_run(
 
 
 def _set_run_state(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     status: str,
@@ -621,7 +629,7 @@ def _set_run_state(
 
 
 def _append_event(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     event_type: str,
@@ -659,7 +667,7 @@ def _append_event(
     )
 
 
-def _run_from_row(row: sqlite3.Row) -> dict[str, object]:
+def _run_from_row(row: Mapping[str, Any]) -> dict[str, object]:
     return {
         "id": row["id"],
         "user_id": row["user_id"],
@@ -679,16 +687,16 @@ def _run_from_row(row: sqlite3.Row) -> dict[str, object]:
         "next_action": row["next_action"],
         "error_code": row["error_code"],
         "error_message": row["error_message"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "started_at": row["started_at"],
-        "completed_at": row["completed_at"],
-        "last_heartbeat_at": row["last_heartbeat_at"],
-        "cancel_requested_at": row["cancel_requested_at"],
+        "created_at": _serialize_db_value(row["created_at"]),
+        "updated_at": _serialize_db_value(row["updated_at"]),
+        "started_at": _serialize_db_value(row["started_at"]),
+        "completed_at": _serialize_db_value(row["completed_at"]),
+        "last_heartbeat_at": _serialize_db_value(row["last_heartbeat_at"]),
+        "cancel_requested_at": _serialize_db_value(row["cancel_requested_at"]),
     }
 
 
-def _event_from_row(row: sqlite3.Row) -> dict[str, object]:
+def _event_from_row(row: Mapping[str, Any]) -> dict[str, object]:
     return {
         "id": row["id"],
         "run_id": row["run_id"],
@@ -698,8 +706,14 @@ def _event_from_row(row: sqlite3.Row) -> dict[str, object]:
         "message": row["message"],
         "payload": _load_json(row["payload_json"]),
         "trace_id": row["trace_id"],
-        "created_at": row["created_at"],
+        "created_at": _serialize_db_value(row["created_at"]),
     }
+
+
+def _serialize_db_value(value: Any) -> Any:
+    if isinstance(value, datetime):
+        return value.astimezone(UTC).isoformat()
+    return value
 
 
 def _policy_payload(policy: SourcePolicyResult) -> dict[str, object]:

@@ -3,10 +3,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import sqlite3
 from collections.abc import Callable
 
 from ml_job_swarm.adapters import public_ats_registry
+from ml_job_swarm.cloud_runtime import StoreConnection
 from ml_job_swarm.cloud_runtime import (
     RunNotFound,
     complete_run,
@@ -23,13 +23,15 @@ from ml_job_swarm.filtering import (
     rules_preview_jobs,
 )
 from ml_job_swarm.ingest import AdapterRegistry, refresh_due_sources, refresh_source
+from ml_job_swarm.db.dialect import BackendKind
+from ml_job_swarm.db.factory import backend_kind_from_env, connect_from_env
 from ml_job_swarm.store import connect, init_db
 
-PacketPreparer = Callable[[sqlite3.Connection, int, int], int]
+PacketPreparer = Callable[[StoreConnection, int, int], int]
 
 
 def run_cloud_workflow_once(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     adapter_registry: AdapterRegistry,
     fit_gate_client: object | None = None,
@@ -100,7 +102,7 @@ def run_cloud_workflow_once(
 
 
 def run_cloud_worker_loop(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     adapter_registry: AdapterRegistry,
     fit_gate_client: object | None = None,
@@ -147,7 +149,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    conn = connect(args.db_path)
+    conn = open_worker_connection(db_path=args.db_path)
     init_db(conn)
     summary = run_cloud_worker_loop(
         conn,
@@ -158,13 +160,21 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _next_queued_run(conn: sqlite3.Connection) -> dict[str, object] | None:
+def open_worker_connection(*, db_path: str) -> StoreConnection:
+    if backend_kind_from_env() == BackendKind.POSTGRES:
+        return connect_from_env()
+    return connect(db_path)
+
+
+def _next_queued_run(conn: StoreConnection) -> dict[str, object] | None:
+    from ml_job_swarm.cloud_runtime import CLOUD_RUN_QUEUE_ORDER
+
     row = conn.execute(
-        """
+        f"""
         SELECT id
         FROM cloud_runs
         WHERE status = 'queued'
-        ORDER BY created_at ASC, rowid ASC
+        ORDER BY {CLOUD_RUN_QUEUE_ORDER}
         LIMIT 1
         """
     ).fetchone()
@@ -174,7 +184,7 @@ def _next_queued_run(conn: sqlite3.Connection) -> dict[str, object] | None:
 
 
 def _evaluate_manifest_sources(
-    conn: sqlite3.Connection, run_id: str, manifest: dict[str, object]
+    conn: StoreConnection, run_id: str, manifest: dict[str, object]
 ) -> dict[str, object] | None:
     for url in _strings(manifest.get("sources")):
         result = evaluate_source_for_run(conn, run_id, url)
@@ -184,7 +194,7 @@ def _evaluate_manifest_sources(
 
 
 def _refresh_sources(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     manifest: dict[str, object],
     adapter_registry: AdapterRegistry,
@@ -260,7 +270,7 @@ def _refresh_sources(
 
 
 def _match_jobs(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     target_profile_id: int,
@@ -294,7 +304,7 @@ def _match_jobs(
 
 
 def _prepare_packets(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: str,
     *,
     target_profile_id: int,
@@ -316,7 +326,7 @@ def _prepare_packets(
 
 
 def _candidate_packet_job_ids(
-    conn: sqlite3.Connection, target_profile_id: int, *, limit: int
+    conn: StoreConnection, target_profile_id: int, *, limit: int
 ) -> list[int]:
     rows = conn.execute(
         """
@@ -342,7 +352,7 @@ def _candidate_packet_job_ids(
     return [int(row["id"]) for row in rows]
 
 
-def _packet_manifest(conn: sqlite3.Connection, packet_id: int) -> dict[str, object]:
+def _packet_manifest(conn: StoreConnection, packet_id: int) -> dict[str, object]:
     row = conn.execute(
         """
         SELECT
@@ -400,7 +410,7 @@ def _packet_manifest(conn: sqlite3.Connection, packet_id: int) -> dict[str, obje
     }
 
 
-def _source_row(conn: sqlite3.Connection, source_id: int) -> sqlite3.Row:
+def _source_row(conn: StoreConnection, source_id: int):
     row = conn.execute(
         """
         SELECT id, url, source_type
@@ -415,7 +425,7 @@ def _source_row(conn: sqlite3.Connection, source_id: int) -> sqlite3.Row:
 
 
 def _default_packet_preparer(
-    conn: sqlite3.Connection, job_id: int, target_profile_id: int
+    conn: StoreConnection, job_id: int, target_profile_id: int
 ) -> int:
     from ml_job_swarm.app import _prepare_application_packet
 

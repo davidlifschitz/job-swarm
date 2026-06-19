@@ -102,7 +102,7 @@ from ml_job_swarm.resume_extract import (
     record_parse_run,
 )
 from ml_job_swarm.source_policy import classify_source_url
-from ml_job_swarm.store import connect, init_db
+from ml_job_swarm.store import connect, init_db, open_store_connection, store_connection_label
 
 
 PACKAGE_ROOT = Path(__file__).parent
@@ -191,12 +191,17 @@ class CloudContinueWorkflowRequest(BaseModel):
     feature_flags: dict[str, object] = Field(default_factory=dict)
 
 
-def create_app(db_path: str | Path = ":memory:") -> FastAPI:
+def create_app(
+    db_path: str | Path = ":memory:",
+    *,
+    conn: object | None = None,
+) -> FastAPI:
     app = FastAPI(title="ml-job-swarm")
-    conn = connect(db_path, check_same_thread=False)
+    if conn is None:
+        conn = connect(db_path, check_same_thread=False)
     init_db(conn)
     app.state.conn = conn
-    app.state.db_path = str(db_path)
+    app.state.db_path = store_connection_label(db_path=db_path)
     app.state.adapter_registry = public_ats_registry()
     app.state.deployment_status = _deployment_status_from_env(os.environ)
     app.state.fit_gate_client = None
@@ -1751,7 +1756,11 @@ def create_app_from_env() -> FastAPI:
     ensure_hosted_directories(paths)
     os.environ.setdefault("ML_JOB_SWARM_DB_PATH", paths["db_path"])
     os.environ.setdefault("ML_JOB_SWARM_RESUME_ASSET_DIR", paths["resume_asset_dir"])
-    app = create_app(paths["db_path"])
+    conn = open_store_connection(
+        db_path=paths["db_path"],
+        check_same_thread=False,
+    )
+    app = create_app(paths["db_path"], conn=conn)
     seed_path = Path(
         os.environ.get("ML_JOB_SWARM_SEED_COMPANIES", str(DEFAULT_SEED_COMPANIES_PATH))
     )

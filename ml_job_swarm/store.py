@@ -365,6 +365,33 @@ def connect(
     return connect_sqlite(path, check_same_thread=check_same_thread).native
 
 
+def open_store_connection(
+    *,
+    db_path: str | Path = "jobs.db",
+    check_same_thread: bool = True,
+) -> "Database | sqlite3.Connection":
+    from ml_job_swarm.db.dialect import BackendKind
+    from ml_job_swarm.db.factory import backend_kind_from_env, connect_from_env
+
+    if backend_kind_from_env() == BackendKind.POSTGRES:
+        return connect_from_env(check_same_thread=check_same_thread)
+    return connect(db_path, check_same_thread=check_same_thread)
+
+
+def store_connection_label(
+    *,
+    db_path: str | Path = "jobs.db",
+    env: dict[str, str] | None = None,
+) -> str:
+    import os
+
+    source = env if env is not None else os.environ
+    database_url = (source.get("DATABASE_URL") or "").strip()
+    if database_url:
+        return "postgresql://***"
+    return str(db_path)
+
+
 def _require_sqlite_connection(
     conn: sqlite3.Connection | "Database",
 ) -> sqlite3.Connection:
