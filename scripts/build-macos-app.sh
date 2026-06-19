@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MACOS_DIR="${ROOT_DIR}/macos/MLJobSwarm"
 APP_NAME="ML Job Swarm"
-APP_VERSION="${APP_VERSION:-0.2.0}"
+APP_VERSION="${APP_VERSION:-0.2.1}"
 BUNDLE_ID="com.davidlifschitz.ml-job-swarm"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/Applications}"
 DIST_DIR="${ROOT_DIR}/macos/dist"

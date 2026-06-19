@@ -47,6 +47,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.value }}"
           ./scripts/bump-homebrew-cask.sh "${VERSION}" "macos/dist/MLJobSwarm-${VERSION}-macos-arm64.tar.gz"
+          cp Casks/ml-job-swarm.rb "${RUNNER_TEMP}/ml-job-swarm-cask.rb"
 
       - name: Commit Homebrew cask bump to main
         run: |
@@ -54,7 +55,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git checkout main
-          git checkout "${GITHUB_REF_NAME}" -- Casks/ml-job-swarm.rb
+          cp "${RUNNER_TEMP}/ml-job-swarm-cask.rb" Casks/ml-job-swarm.rb
           if git diff --quiet Casks/ml-job-swarm.rb; then
             echo "Homebrew cask already up to date on main."
             exit 0

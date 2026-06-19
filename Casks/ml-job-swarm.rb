@@ -1,6 +1,6 @@
 cask "ml-job-swarm" do
-  version "0.2.0"
-  sha256 "4ad7087312a36175b216ff66ebebfbc3e62dc25f926c3c204ac302f0eaeba2e1"
+  version "0.2.1"
+  sha256 "561daabe5f8baa0cd8596e28bd986bfcd377882353c964486eb98c15dc371d4a"
 
   url "https://github.com/davidlifschitz/job-swarm/releases/download/v#{version}/MLJobSwarm-#{version}-macos-arm64.tar.gz"
   name "ML Job Swarm"

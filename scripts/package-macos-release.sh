@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${1:-0.2.0}"
+VERSION="${1:-0.2.1}"
 DIST_DIR="${ROOT_DIR}/macos/dist"
 APP_BUNDLE="${DIST_DIR}/MLJobSwarm.app"
 ARCHIVE_NAME="MLJobSwarm-${VERSION}-macos-arm64.tar.gz"

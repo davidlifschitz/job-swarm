@@ -39,8 +39,8 @@ This build is **not Apple-notarized**. Browser downloads may trigger Gatekeeper;
 **1. Download** the `.tar.gz` to `~/Downloads`:
 
 ```bash
-curl -L -o ~/Downloads/MLJobSwarm-0.2.0-macos-arm64.tar.gz \
-  https://github.com/davidlifschitz/job-swarm/releases/download/v0.2.0/MLJobSwarm-0.2.0-macos-arm64.tar.gz
+curl -L -o ~/Downloads/MLJobSwarm-0.2.1-macos-arm64.tar.gz \
+  https://github.com/davidlifschitz/job-swarm/releases/download/v0.2.1/MLJobSwarm-0.2.1-macos-arm64.tar.gz
 ```
 
 **2. Run the installer** (pick one):
@@ -51,13 +51,13 @@ curl -L -o ~/Downloads/MLJobSwarm-0.2.0-macos-arm64.tar.gz \
 curl -fsSL -o /tmp/install-mljobswarm.sh \
   https://raw.githubusercontent.com/davidlifschitz/job-swarm/main/scripts/install-macos-release.sh
 
-bash /tmp/install-mljobswarm.sh ~/Downloads/MLJobSwarm-0.2.0-macos-arm64.tar.gz
+bash /tmp/install-mljobswarm.sh ~/Downloads/MLJobSwarm-0.2.1-macos-arm64.tar.gz
 ```
 
 *If you already cloned this repo:*
 
 ```bash
-./scripts/install-macos-release.sh ~/Downloads/MLJobSwarm-0.2.0-macos-arm64.tar.gz
+./scripts/install-macos-release.sh ~/Downloads/MLJobSwarm-0.2.1-macos-arm64.tar.gz
 ```
 
 The installer extracts the archive, copies to `~/Applications/MLJobSwarm.app`, clears quarantine, re-signs the app, and launches it.
@@ -115,7 +115,7 @@ Install from a GitHub release: see **Install ML Job Swarm (macOS)** above.
 
 See `macos/README.md` for architecture, LLM settings, and snapshot testing.
 
-### macOS features (v0.2.0)
+### macOS features (v0.2.1)
 
 - Dashboard with referral network, filter chips, and careers refresh
 - LinkedIn connections import and catalog matching

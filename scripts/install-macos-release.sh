@@ -5,7 +5,7 @@ set -euo pipefail
 # Finder double-click (which Gatekeeper blocks for unsigned releases).
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${ML_JOB_SWARM_VERSION:-0.2.0}"
+VERSION="${ML_JOB_SWARM_VERSION:-0.2.1}"
 DOWNLOADS="${HOME}/Downloads"
 APP_DEST="${HOME}/Applications/MLJobSwarm.app"
 TAR_CANDIDATE="${1:-${DOWNLOADS}/MLJobSwarm-${VERSION}-macos-arm64.tar.gz}"
