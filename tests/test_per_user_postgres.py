@@ -68,8 +68,8 @@ def postgres_conn(monkeypatch):
 def _seed_company_and_job(conn) -> int:
     company_id = conn.execute(
         """
-        INSERT INTO companies (name, normalized_name, status)
-        VALUES ('Acme', 'acme', 'active')
+        INSERT INTO companies (name, normalized_name)
+        VALUES ('Acme', 'acme')
         RETURNING id
         """
     ).fetchone()["id"]
@@ -80,9 +80,10 @@ def _seed_company_and_job(conn) -> int:
           title,
           source_url,
           apply_url,
+          content_hash,
           status
         )
-        VALUES (?, 'ML Engineer', 'https://jobs.lever.co/acme/1', 'https://jobs.lever.co/acme/1', 'open')
+        VALUES (?, 'ML Engineer', 'https://jobs.lever.co/acme/1', 'https://jobs.lever.co/acme/1', 'acme-job-hash', 'open')
         """,
         (company_id,),
     ).lastrowid

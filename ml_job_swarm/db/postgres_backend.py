@@ -39,11 +39,12 @@ class PostgresDatabase:
         from ml_job_swarm.db.dialect import BackendKind, translate_sql
 
         translated = translate_sql(sql, BackendKind.POSTGRES)
-        if _insert_should_return_id(translated):
+        auto_returning = _insert_should_return_id(translated)
+        if auto_returning:
             translated = f"{translated.rstrip().rstrip(';')} RETURNING id"
         cursor = self._conn.cursor()
         cursor.execute(translated, params)
-        lastrowid = _read_insert_id(cursor, translated)
+        lastrowid = _read_insert_id(cursor, translated) if auto_returning else None
         return PostgresCursor(cursor, lastrowid=lastrowid)
 
     def executemany(
@@ -99,9 +100,11 @@ def _read_insert_id(cursor: Any, sql: str) -> int | None:
     row = cursor.fetchone()
     if row is None:
         return None
-    if isinstance(row, dict):
-        return int(row["id"])
-    return int(row[0])
+    value = row["id"] if isinstance(row, dict) else row[0]
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def connect_postgres(database_url: str) -> PostgresDatabase:
