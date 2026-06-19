@@ -407,6 +407,7 @@ def create_api_v1_router(
             original_filename=resume.filename or "resume",
             digest=digest,
             asset_dir=resume_asset_dir,
+            user_id=get_authenticated_user_id(request),
         )
         resume_asset_id = upsert_resume_asset_record(
             conn,

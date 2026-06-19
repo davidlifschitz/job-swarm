@@ -28,39 +28,36 @@ def persist_resume_asset(
     original_filename: str,
     digest: str,
     asset_dir: str | Path | None = None,
+    user_id: str | None = None,
 ) -> str:
-    root = _asset_root(asset_dir)
-    root.mkdir(parents=True, exist_ok=True)
-    suffix = _safe_suffix(original_filename)
-    filename = f"{digest}{suffix}"
-    path = _resolve_asset_name(filename, root)
-    if not path.exists():
-        path.write_bytes(content)
-    return f"{RESUME_ASSET_URI_PREFIX}{filename}"
+    from ml_job_swarm.resume_storage import resume_storage_from_env
+
+    backend = resume_storage_from_env(asset_dir=asset_dir)
+    return backend.persist(
+        content,
+        original_filename=original_filename,
+        digest=digest,
+        user_id=user_id,
+    )
 
 
 def load_resume_asset_bytes(
     storage_uri: str,
     asset_dir: str | Path | None = None,
 ) -> bytes:
-    path = resolve_resume_asset_path(storage_uri, asset_dir)
-    if not path.exists():
-        raise ResumeAssetStorageError("Stored resume asset is unavailable")
-    try:
-        return path.read_bytes()
-    except OSError as exc:
-        raise ResumeAssetStorageError("Stored resume asset is unreadable") from exc
+    from ml_job_swarm.resume_storage import backend_for_storage_uri
+
+    backend = backend_for_storage_uri(storage_uri, asset_dir=asset_dir)
+    return backend.load_bytes(storage_uri)
 
 
 def resolve_resume_asset_path(
     storage_uri: str,
     asset_dir: str | Path | None = None,
 ) -> Path:
-    if not storage_uri.startswith(RESUME_ASSET_URI_PREFIX):
-        raise ResumeAssetStorageError("Unsupported resume asset storage URI")
-    asset_name = storage_uri.removeprefix(RESUME_ASSET_URI_PREFIX)
-    root = _asset_root(asset_dir)
-    return _resolve_asset_name(asset_name, root)
+    from ml_job_swarm.resume_storage import _resolve_local_storage_uri
+
+    return _resolve_local_storage_uri(storage_uri, asset_dir=asset_dir)
 
 
 def pdf_page_image_content_parts(
@@ -104,22 +101,4 @@ def _render_pdf_pages_as_png(content: bytes, *, max_pages: int) -> list[bytes]:
     return pages
 
 
-def _asset_root(asset_dir: str | Path | None) -> Path:
-    return Path(asset_dir) if asset_dir is not None else default_resume_asset_dir()
 
-
-def _resolve_asset_name(asset_name: str, root: Path) -> Path:
-    if not asset_name or Path(asset_name).name != asset_name:
-        raise ResumeAssetStorageError("Invalid resume asset storage URI")
-    path = (root / asset_name).resolve()
-    root_resolved = root.resolve()
-    if path.parent != root_resolved:
-        raise ResumeAssetStorageError("Invalid resume asset storage URI")
-    return path
-
-
-def _safe_suffix(filename: str) -> str:
-    suffix = Path(filename or "").suffix.lower()
-    if suffix not in SUPPORTED_ASSET_SUFFIXES:
-        return ""
-    return suffix

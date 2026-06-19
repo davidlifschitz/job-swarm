@@ -17,6 +17,7 @@ dependencies = [
 
 [project.optional-dependencies]
 hosted = [
+    "httpx>=0.27",
     "psycopg[binary]>=3.2",
 ]
 

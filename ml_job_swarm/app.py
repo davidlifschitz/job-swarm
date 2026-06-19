@@ -293,6 +293,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
             original_filename=resume.filename or "resume",
             digest=digest,
             asset_dir=app.state.resume_asset_dir,
+            user_id=_authenticated_user_id(request),
         )
         resume_asset_id = upsert_resume_asset_record(
             conn,
