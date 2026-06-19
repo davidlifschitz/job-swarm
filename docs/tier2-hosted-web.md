@@ -52,10 +52,18 @@ Public macOS installs remain Tier 1 ([tier1-macos-release.md](tier1-macos-releas
 Add a second Railway service (same repo/image) with start command:
 
 ```bash
-uv run ml-job-swarm-cloud-worker --max-runs 0
+uv run ml-job-swarm-cloud-worker --db-path /data/jobs.db --max-runs 0
 ```
 
-Use `--max-runs 0` for a long-running drain loop, or invoke `POST /api/cloud/worker/run-next` from a cron.
+`--max-runs 0` runs until idle in a loop (daemon mode). Or invoke `POST /api/cloud/worker/run-next` from a cron on the web service.
+
+### 4. Post-deploy smoke
+
+```bash
+./scripts/smoke-hosted.sh https://your-app.up.railway.app
+# With a Supabase access token:
+./scripts/smoke-hosted.sh https://your-app.up.railway.app "$ACCESS_TOKEN"
+```
 
 ## Local development
 

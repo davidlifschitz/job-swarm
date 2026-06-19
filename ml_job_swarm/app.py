@@ -513,6 +513,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
                 status_code=400,
             )
         preferences = _preferences_payload(submitted)
+        _require_profile_access(request, target_profile_id)
         try:
             update_preferences(conn, target_profile_id, preferences)
         except ValueError as exc:
@@ -670,6 +671,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
     ) -> HTMLResponse:
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         try:
             detail = _job_detail(conn, job_id, target_profile_id)
         except ValueError as exc:
@@ -692,6 +694,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/jobs/{job_id}/referral-contacts")
     def add_referral_contact(
+        request: Request,
         job_id: int,
         target_profile_id: Annotated[int | None, Form()] = None,
         name: Annotated[str | None, Form()] = None,
@@ -702,6 +705,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
     ):
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         if not name or not name.strip():
             return HTMLResponse("name is required", status_code=400)
         company_id = _company_id_for_job(conn, job_id)
@@ -723,11 +727,13 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/jobs/{job_id}/application-packet")
     def prepare_application_packet(
+        request: Request,
         job_id: int,
         target_profile_id: Annotated[int | None, Form()] = None,
     ):
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         try:
             packet_id = _prepare_application_packet(
                 conn,
@@ -743,12 +749,14 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/application-packets/{packet_id}/status")
     def update_application_packet_status(
+        request: Request,
         packet_id: int,
         target_profile_id: Annotated[int | None, Form()] = None,
         status: Annotated[str | None, Form()] = None,
     ):
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         if status not in {"prepared", "submitted"}:
             return HTMLResponse("status must be prepared or submitted", status_code=400)
         row = conn.execute(
@@ -779,6 +787,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/jobs/{job_id}/decision")
     def set_job_decision(
+        request: Request,
         job_id: int,
         target_profile_id: Annotated[int | None, Form()] = None,
         decision: Annotated[str | None, Form()] = None,
@@ -787,6 +796,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
     ):
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         if decision is None:
             return HTMLResponse("decision is required", status_code=400)
         try:
@@ -814,11 +824,13 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/dashboard/review-jobs", response_class=HTMLResponse)
     def review_dashboard_jobs(
+        request: Request,
         target_profile_id: Annotated[int | None, Form()] = None,
         llm_consent: Annotated[str | None, Form()] = None,
     ) -> HTMLResponse:
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         if llm_consent != "on":
             return HTMLResponse("LLM consent is required", status_code=400)
         fit_gate_client = app.state.fit_gate_client
@@ -839,10 +851,12 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/dashboard/refresh-sources", response_class=HTMLResponse)
     def refresh_dashboard_sources(
+        request: Request,
         target_profile_id: Annotated[int | None, Form()] = None,
     ) -> HTMLResponse:
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         try:
             _profile_summary(conn, target_profile_id)
         except ValueError as exc:
@@ -879,11 +893,13 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.post("/dashboard/find-matches", response_class=HTMLResponse)
     def find_dashboard_matches(
+        request: Request,
         target_profile_id: Annotated[int | None, Form()] = None,
         llm_consent: Annotated[str | None, Form()] = None,
     ) -> HTMLResponse:
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         if llm_consent != "on":
             return HTMLResponse("LLM consent is required", status_code=400)
         fit_gate_client = app.state.fit_gate_client
@@ -936,12 +952,14 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     @app.get("/dashboard/saved.csv")
     def export_saved_jobs(
+        request: Request,
         target_profile_id: int | None = None,
         q: str = "",
         sort: str = "recent",
     ) -> Response:
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         try:
             rows = saved_job_export_rows(conn, target_profile_id)
         except ValueError as exc:
@@ -982,6 +1000,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
     ) -> HTMLResponse:
         if target_profile_id is None:
             return HTMLResponse("target_profile_id is required", status_code=400)
+        _require_profile_access(request, target_profile_id)
         try:
             rows = saved_job_export_rows(conn, target_profile_id)
         except ValueError as exc:

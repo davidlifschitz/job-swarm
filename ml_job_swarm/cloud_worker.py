@@ -108,7 +108,8 @@ def run_cloud_worker_loop(
     packet_preparer: PacketPreparer | None = None,
 ) -> dict[str, object]:
     processed = []
-    while max_runs is None or len(processed) < max_runs:
+    unlimited = max_runs is None or max_runs <= 0
+    while unlimited or len(processed) < max_runs:
         result = run_cloud_workflow_once(
             conn,
             adapter_registry=adapter_registry,

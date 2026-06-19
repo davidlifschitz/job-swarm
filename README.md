@@ -144,12 +144,9 @@ Before contributing, run `git status` and confirm you are not staging `.env`, `j
 
 ## Deployment Status
 
-No hosted production URL is declared in this repo's GitHub homepage or deployment
-metadata right now, so the website reports `Deployment: Local development` by
-default. Set `ML_JOB_SWARM_PUBLIC_URL` when a real hosted app exists; `PUBLIC_URL`
-is the fallback explicit URL. If neither is set, the shell detects provider
-variables in this order: `RENDER_EXTERNAL_URL`, `VERCEL_URL`,
-`RAILWAY_PUBLIC_DOMAIN`, then `FLY_APP_NAME`.
+**Tier 2 (hosted web):** deploy to Railway with Supabase Auth — see [docs/tier2-hosted-web.md](docs/tier2-hosted-web.md). Copy env vars from `.env.hosted.example`.
+
+Locally the app reports `Deployment: Local development` until `ML_JOB_SWARM_PUBLIC_URL`, `PUBLIC_URL`, or a provider hostname (`RAILWAY_PUBLIC_DOMAIN`, etc.) is set.
 
 Seeded company/source rows are real local catalog data for development and
 first-run testing. They are not presented as production job results until source

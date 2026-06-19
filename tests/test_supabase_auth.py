@@ -112,6 +112,50 @@ def test_cloud_runs_are_scoped_to_authenticated_user(tmp_path, monkeypatch):
     assert other_user.json()["runs"] == []
 
 
+def test_profile_access_denied_for_other_user(tmp_path, monkeypatch):
+    _auth_env(monkeypatch)
+    from ml_job_swarm.profile import create_target_profile
+
+    app = create_app(tmp_path / "profiles.db")
+    conn = app.state.conn
+    conn.execute(
+        """
+        INSERT INTO resume_assets (original_filename, content_type, storage_path, sha256)
+        VALUES ('resume.pdf', 'application/pdf', '/tmp/resume.pdf', 'digest-a')
+        """
+    )
+    conn.commit()
+    asset_id = conn.execute("SELECT id FROM resume_assets LIMIT 1").fetchone()["id"]
+    profile_id = create_target_profile(
+        conn,
+        resume_asset_id=asset_id,
+        keywords={
+            "desired_titles": ["engineer"],
+            "levels": [],
+            "locations": [],
+            "remote_modes": [],
+            "company_stages": [],
+        },
+        preferences={
+            "role": {"titles": ["engineer"]},
+            "level": {"levels": ["senior"]},
+            "location": {"locations": ["remote"]},
+            "work_mode": {"modes": ["remote"]},
+            "company_stage": {"stages": ["growth"]},
+        },
+        user_id="owner-a",
+    )
+
+    client = TestClient(app)
+    token_b = _make_token("owner-b")
+    response = client.get(
+        f"/dashboard?target_profile_id={profile_id}",
+        headers={"Authorization": f"Bearer {token_b}"},
+        follow_redirects=False,
+    )
+    assert response.status_code == 403
+
+
 def test_auth_callback_sets_session_cookie(tmp_path, monkeypatch):
     _auth_env(monkeypatch)
     client = TestClient(create_app(tmp_path / "auth-callback.db"))
