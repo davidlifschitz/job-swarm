@@ -205,6 +205,7 @@ CREATE TABLE IF NOT EXISTS resume_keywords (
 
 CREATE TABLE IF NOT EXISTS target_profiles (
   id INTEGER PRIMARY KEY,
+  user_id TEXT,
   resume_asset_id INTEGER REFERENCES resume_assets(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   version INTEGER NOT NULL DEFAULT 1,
@@ -369,6 +370,7 @@ def init_db(conn: sqlite3.Connection) -> None:
         "jobs_closed",
         "INTEGER NOT NULL DEFAULT 0",
     )
+    _ensure_column(conn, "target_profiles", "user_id", "TEXT")
     conn.commit()
 
 

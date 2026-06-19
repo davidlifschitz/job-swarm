@@ -18,11 +18,17 @@ _KEYWORD_COLUMNS = {
 }
 
 
+class ProfileAccessDenied(PermissionError):
+    pass
+
+
 def create_target_profile(
     conn: sqlite3.Connection,
     resume_asset_id: int,
     keywords: Mapping[str, Any],
     preferences: Mapping[str, Any],
+    *,
+    user_id: str | None = None,
 ) -> int:
     _require_resume_asset(conn, resume_asset_id)
     _validate_preferences(preferences)
@@ -36,6 +42,7 @@ def create_target_profile(
         cursor = conn.execute(
             """
             INSERT INTO target_profiles (
+                user_id,
                 resume_asset_id,
                 name,
                 version,
@@ -46,9 +53,10 @@ def create_target_profile(
                 company_stages_json,
                 active
             )
-            VALUES (?, ?, 1, ?, ?, ?, ?, ?, 1)
+            VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?, 1)
             """,
             (
+                user_id,
                 resume_asset_id,
                 name,
                 values["desired_titles_json"],
@@ -114,6 +122,25 @@ def current_profile_version(conn: sqlite3.Connection, target_profile_id: int) ->
     if row is None:
         raise ValueError(f"target_profile_id not found: {target_profile_id}")
     return int(_row_value(row, "version"))
+
+
+def require_target_profile_access(
+    conn: sqlite3.Connection,
+    target_profile_id: int,
+    *,
+    user_id: str | None,
+) -> None:
+    if user_id is None:
+        return
+    row = conn.execute(
+        "SELECT user_id FROM target_profiles WHERE id = ?",
+        (target_profile_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"target_profile_id not found: {target_profile_id}")
+    owner_id = _row_value(row, "user_id")
+    if owner_id is not None and str(owner_id) != user_id:
+        raise ProfileAccessDenied(f"target_profile_id not accessible: {target_profile_id}")
 
 
 def _validate_preferences(preferences: Mapping[str, Any]) -> None:

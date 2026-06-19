@@ -182,15 +182,35 @@ def list_run_events(conn: sqlite3.Connection, run_id: str) -> list[dict[str, obj
     return [_event_from_row(row) for row in rows]
 
 
-def list_runs(conn: sqlite3.Connection) -> list[dict[str, object]]:
-    rows = conn.execute(
-        """
-        SELECT *
-        FROM cloud_runs
-        ORDER BY created_at ASC, rowid ASC
-        """
-    ).fetchall()
+def list_runs(conn: sqlite3.Connection, *, user_id: str | None = None) -> list[dict[str, object]]:
+    if user_id is None:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM cloud_runs
+            ORDER BY created_at ASC, rowid ASC
+            """
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM cloud_runs
+            WHERE user_id = ?
+            ORDER BY created_at ASC, rowid ASC
+            """,
+            (user_id,),
+        ).fetchall()
     return [_run_from_row(row) for row in rows]
+
+
+def get_run_for_user(
+    conn: sqlite3.Connection, run_id: str, *, user_id: str
+) -> dict[str, object]:
+    run = get_run(conn, run_id)
+    if str(run["user_id"]) != user_id:
+        raise RunNotFound(run_id)
+    return run
 
 
 def record_run_stage_result(

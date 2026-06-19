@@ -3,7 +3,7 @@
 | Tier | Goal | Status |
 |------|------|--------|
 | 1 | GitHub downloaders — macOS app anyone can install | **Complete** |
-| 2 | Hosted webapp (Vercel/Supabase or similar) | Not started |
+| 2 | Hosted webapp (Railway + Supabase) | **In progress** (Phase A) |
 | 3 | App Store (Apple + Android) | Not started |
 
 ## Tier 1 — complete
@@ -26,9 +26,13 @@ brew install --cask ml-job-swarm
 
 See [tier1-macos-release.md](tier1-macos-release.md) for details.
 
-## Tier 2 — hosted web
+## Tier 2 — hosted web (in progress)
 
-Deploy the existing FastAPI web UI and cloud runtime to a public URL with auth and persistent storage. Start from [cloud-production-server-goals.md](cloud-production-server-goals.md).
+Deploy the FastAPI web UI and cloud runtime to Railway with Supabase Auth and a persistent volume for SQLite.
+
+**Phase A:** Railway + Supabase Auth + volume-backed SQLite — see [tier2-hosted-web.md](tier2-hosted-web.md).
+
+**Phase B:** Supabase Postgres + Storage — see [cloud-production-server-goals.md](cloud-production-server-goals.md).
 
 ## Tier 3 — app stores
 

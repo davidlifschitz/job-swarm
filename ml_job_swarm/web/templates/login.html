@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Hosted access</p>
+    <h1>Sign in</h1>
+  </div>
+</header>
+
+<section class="source-table-section">
+  <p>Sign in with your Supabase account to use the hosted ML Job Swarm console.</p>
+  <form id="login-form" class="stack-form">
+    <label>
+      Email
+      <input type="email" id="email" name="email" required autocomplete="email">
+    </label>
+    <label>
+      Password
+      <input type="password" id="password" name="password" required autocomplete="current-password">
+    </label>
+    <button type="submit">Sign in</button>
+  </form>
+  <p id="login-error" class="error-text" hidden></p>
+</section>
+
+<script type="module">
+  const config = {
+    url: {{ supabase_url|tojson }},
+    anonKey: {{ supabase_anon_key|tojson }},
+    nextPath: {{ next_path|tojson }},
+  };
+
+  const form = document.getElementById("login-form");
+  const errorEl = document.getElementById("login-error");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    errorEl.hidden = true;
+    errorEl.textContent = "";
+
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    try {
+      const response = await fetch(`${config.url}/auth/v1/token?grant_type=password`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "apikey": config.anonKey,
+        },
+        body: JSON.stringify({ email, password }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error_description || payload.msg || "Sign in failed");
+      }
+
+      const callback = await fetch("/auth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ access_token: payload.access_token }),
+      });
+      if (!callback.ok) {
+        throw new Error("Could not start hosted session");
+      }
+
+      window.location.assign(config.nextPath || "/dashboard");
+    } catch (error) {
+      errorEl.hidden = false;
+      errorEl.textContent = error instanceof Error ? error.message : "Sign in failed";
+    }
+  });
+</script>
+{% endblock %}

@@ -30,6 +30,7 @@ from ml_job_swarm.decisions import (
     record_job_decision,
     saved_job_export_rows,
 )
+from ml_job_swarm.auth_middleware import ACCESS_TOKEN_COOKIE, SupabaseAuthMiddleware
 from ml_job_swarm.cloud_runtime import (
     ManualFinalSubmitBlocked,
     RunNotFound,
@@ -40,11 +41,13 @@ from ml_job_swarm.cloud_runtime import (
     evaluate_source_for_run,
     find_run_by_idempotency_key,
     get_run,
+    get_run_for_user,
     list_run_events,
     list_runs,
     record_prepared_packet,
     record_run_heartbeat,
 )
+from ml_job_swarm.hosting import ensure_hosted_directories, hosted_paths_from_env, is_hosted_deployment
 from ml_job_swarm.cloud_worker import run_cloud_workflow_once
 from ml_job_swarm.filtering import (
     CompanyResult,
@@ -75,10 +78,13 @@ from ml_job_swarm.llm import (
 from ml_job_swarm.openrouter import configure_openrouter_clients_from_env
 from ml_job_swarm.profile import (
     REQUIRED_PREFERENCE_IDS,
+    ProfileAccessDenied,
     create_target_profile,
     current_profile_version,
+    require_target_profile_access,
     update_preferences,
 )
+from ml_job_swarm.supabase_auth import supabase_config_from_env, validate_access_token
 from ml_job_swarm.resume_assets import (
     ResumeAssetStorageError,
     default_resume_asset_dir,
@@ -138,7 +144,7 @@ SENSITIVE_DETAIL_KEY_TERMS = (
 
 
 class CloudRunCreateRequest(BaseModel):
-    user_id: str
+    user_id: str | None = None
     requested_action: str
     input_manifest: dict[str, object] = Field(default_factory=dict)
     idempotency_key: str | None = None
@@ -172,7 +178,7 @@ class CloudFinalSubmitRequest(BaseModel):
 
 
 class CloudContinueWorkflowRequest(BaseModel):
-    user_id: str
+    user_id: str | None = None
     input_manifest: dict[str, object] = Field(default_factory=dict)
     idempotency_key: str | None = None
     environment_class: str = "cloud"
@@ -202,6 +208,51 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    app.state.supabase_auth_config = supabase_config_from_env()
+    if app.state.supabase_auth_config is not None:
+        app.add_middleware(SupabaseAuthMiddleware, config=app.state.supabase_auth_config)
+
+    @app.get("/auth/login", response_class=HTMLResponse)
+    def auth_login(request: Request, next: str = "/dashboard") -> HTMLResponse:
+        if app.state.supabase_auth_config is None:
+            return RedirectResponse("/dashboard", status_code=303)
+        return _render(
+            request,
+            "login.html",
+            supabase_url=app.state.supabase_auth_config.url,
+            supabase_anon_key=app.state.supabase_auth_config.anon_key,
+            next_path=next,
+        )
+
+    @app.post("/auth/callback")
+    async def auth_callback(request: Request) -> JSONResponse:
+        if app.state.supabase_auth_config is None:
+            raise HTTPException(status_code=404, detail="auth not configured")
+        payload = await request.json()
+        token = str(payload.get("access_token") or "").strip()
+        if not token:
+            raise HTTPException(status_code=400, detail="access_token is required")
+        try:
+            validate_access_token(token, app.state.supabase_auth_config)
+        except Exception as exc:
+            raise HTTPException(status_code=401, detail="invalid access token") from exc
+        response = JSONResponse({"ok": True})
+        response.set_cookie(
+            ACCESS_TOKEN_COOKIE,
+            token,
+            httponly=True,
+            secure=is_hosted_deployment(),
+            samesite="lax",
+            max_age=60 * 60 * 24 * 7,
+        )
+        return response
+
+    @app.get("/auth/logout")
+    def auth_logout() -> RedirectResponse:
+        response = RedirectResponse("/auth/login", status_code=303)
+        response.delete_cookie(ACCESS_TOKEN_COOKIE)
+        return response
 
     @app.get("/", include_in_schema=False)
     def root() -> RedirectResponse:
@@ -442,6 +493,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
             resume_asset_id=resume_asset_id,
             keywords=keywords,
             preferences=preferences,
+            user_id=_authenticated_user_id(request),
         )
         return RedirectResponse(
             f"/dashboard?target_profile_id={target_profile_id}", status_code=303
@@ -548,6 +600,7 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
                 rules_preview_jobs=[],
                 unreviewed_jobs=[],
             )
+        _require_profile_access(request, target_profile_id)
         try:
             companies = visible_company_results(conn, target_profile_id)
             companies = _filter_companies_by_decision(
@@ -1497,11 +1550,12 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         return build_runtime_readiness_report(conn)
 
     @app.get("/api/cloud/runs")
-    def list_cloud_runs():
+    def list_cloud_runs(http_request: Request):
+        user_id = _authenticated_user_id(http_request)
         return {
             "runs": [
                 {**run, "events": list_run_events(conn, str(run["id"]))}
-                for run in list_runs(conn)
+                for run in list_runs(conn, user_id=user_id)
             ]
         }
 
@@ -1514,22 +1568,23 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         )
 
     @app.post("/api/cloud/workflows/continue")
-    def continue_cloud_workflow(request: CloudContinueWorkflowRequest):
-        existing = find_run_by_idempotency_key(
-            conn, request.user_id, request.idempotency_key
-        )
+    def continue_cloud_workflow(
+        body: CloudContinueWorkflowRequest, http_request: Request
+    ):
+        user_id = _resolve_cloud_user_id(http_request, body.user_id)
+        existing = find_run_by_idempotency_key(conn, user_id, body.idempotency_key)
         if existing is None:
             run = create_run(
                 conn,
-                user_id=request.user_id,
+                user_id=user_id,
                 requested_action="continue_local_workflow",
-                input_manifest=request.input_manifest,
-                idempotency_key=request.idempotency_key,
-                environment_class=request.environment_class,
-                code_version=request.code_version,
-                container_image_digest=request.container_image_digest,
-                dependency_lock_hash=request.dependency_lock_hash,
-                feature_flags=request.feature_flags,
+                input_manifest=body.input_manifest,
+                idempotency_key=body.idempotency_key,
+                environment_class=body.environment_class,
+                code_version=body.code_version,
+                container_image_digest=body.container_image_digest,
+                dependency_lock_hash=body.dependency_lock_hash,
+                feature_flags=body.feature_flags,
             )
             run_id = str(run["id"])
         else:
@@ -1542,75 +1597,87 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
         )
 
     @app.post("/api/cloud/runs")
-    def create_cloud_run(request: CloudRunCreateRequest):
-        existing = find_run_by_idempotency_key(
-            conn, request.user_id, request.idempotency_key
-        )
+    def create_cloud_run(body: CloudRunCreateRequest, http_request: Request):
+        user_id = _resolve_cloud_user_id(http_request, body.user_id)
+        existing = find_run_by_idempotency_key(conn, user_id, body.idempotency_key)
         if existing is not None:
             return existing
         run = create_run(
             conn,
-            user_id=request.user_id,
-            requested_action=request.requested_action,
-            input_manifest=request.input_manifest,
-            idempotency_key=request.idempotency_key,
-            environment_class=request.environment_class,
-            code_version=request.code_version,
-            container_image_digest=request.container_image_digest,
-            dependency_lock_hash=request.dependency_lock_hash,
-            feature_flags=request.feature_flags,
+            user_id=user_id,
+            requested_action=body.requested_action,
+            input_manifest=body.input_manifest,
+            idempotency_key=body.idempotency_key,
+            environment_class=body.environment_class,
+            code_version=body.code_version,
+            container_image_digest=body.container_image_digest,
+            dependency_lock_hash=body.dependency_lock_hash,
+            feature_flags=body.feature_flags,
         )
         return JSONResponse(status_code=201, content=run)
 
     @app.get("/api/cloud/runs/{run_id}")
-    def get_cloud_run(run_id: str):
+    def get_cloud_run(run_id: str, http_request: Request):
         try:
-            run = get_run(conn, run_id)
+            run = _get_cloud_run(conn, run_id, http_request)
         except RunNotFound as exc:
             raise HTTPException(status_code=404, detail="cloud run not found") from exc
         return {**run, "events": list_run_events(conn, run_id)}
 
     @app.post("/api/cloud/runs/{run_id}/heartbeat")
-    def heartbeat_cloud_run(run_id: str, request: CloudHeartbeatRequest):
+    def heartbeat_cloud_run(
+        run_id: str, body: CloudHeartbeatRequest, http_request: Request
+    ):
         try:
-            return record_run_heartbeat(conn, run_id, stage=request.stage)
+            _get_cloud_run(conn, run_id, http_request)
+            return record_run_heartbeat(conn, run_id, stage=body.stage)
         except RunNotFound as exc:
             raise HTTPException(status_code=404, detail="cloud run not found") from exc
 
     @app.post("/api/cloud/runs/{run_id}/cancel")
-    def cancel_cloud_run(run_id: str, request: CloudCancelRequest):
+    def cancel_cloud_run(
+        run_id: str, body: CloudCancelRequest, http_request: Request
+    ):
         try:
-            return cancel_run(conn, run_id, reason=request.reason)
+            _get_cloud_run(conn, run_id, http_request)
+            return cancel_run(conn, run_id, reason=body.reason)
         except RunNotFound as exc:
             raise HTTPException(status_code=404, detail="cloud run not found") from exc
 
     @app.post("/api/cloud/runs/{run_id}/sources/evaluate")
-    def evaluate_cloud_run_source(run_id: str, request: CloudSourceEvaluationRequest):
+    def evaluate_cloud_run_source(
+        run_id: str, body: CloudSourceEvaluationRequest, http_request: Request
+    ):
         try:
-            return evaluate_source_for_run(conn, run_id, request.url)
+            _get_cloud_run(conn, run_id, http_request)
+            return evaluate_source_for_run(conn, run_id, body.url)
         except RunNotFound as exc:
             raise HTTPException(status_code=404, detail="cloud run not found") from exc
 
     @app.post("/api/cloud/runs/{run_id}/application-packets/prepared")
     def record_cloud_run_prepared_packet(
-        run_id: str, request: CloudPreparedPacketRequest
+        run_id: str, body: CloudPreparedPacketRequest, http_request: Request
     ):
         try:
-            return record_prepared_packet(conn, run_id, request.packet_manifest)
+            _get_cloud_run(conn, run_id, http_request)
+            return record_prepared_packet(conn, run_id, body.packet_manifest)
         except RunNotFound as exc:
             raise HTTPException(status_code=404, detail="cloud run not found") from exc
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     @app.post("/api/cloud/runs/{run_id}/final-submit")
-    def cloud_run_final_submit(run_id: str, request: CloudFinalSubmitRequest):
+    def cloud_run_final_submit(
+        run_id: str, body: CloudFinalSubmitRequest, http_request: Request
+    ):
         try:
+            _get_cloud_run(conn, run_id, http_request)
             return create_manual_final_submit_instruction(
                 conn,
                 run_id,
-                packet_id=request.packet_id,
-                apply_url=request.apply_url,
-                requested_by_automation=request.requested_by_automation,
+                packet_id=body.packet_id,
+                apply_url=body.apply_url,
+                requested_by_automation=body.requested_by_automation,
             )
         except RunNotFound as exc:
             raise HTTPException(status_code=404, detail="cloud run not found") from exc
@@ -1657,8 +1724,11 @@ def create_app(db_path: str | Path = ":memory:") -> FastAPI:
 
 
 def create_app_from_env() -> FastAPI:
-    db_path = os.environ.get("ML_JOB_SWARM_DB_PATH", "jobs.db")
-    app = create_app(db_path)
+    paths = hosted_paths_from_env()
+    ensure_hosted_directories(paths)
+    os.environ.setdefault("ML_JOB_SWARM_DB_PATH", paths["db_path"])
+    os.environ.setdefault("ML_JOB_SWARM_RESUME_ASSET_DIR", paths["resume_asset_dir"])
+    app = create_app(paths["db_path"])
     seed_path = Path(
         os.environ.get("ML_JOB_SWARM_SEED_COMPANIES", str(DEFAULT_SEED_COMPANIES_PATH))
     )
@@ -1678,6 +1748,39 @@ def create_app_from_env() -> FastAPI:
     return app
 
 
+def _authenticated_user_id(request: Request) -> str | None:
+    return getattr(request.state, "user_id", None)
+
+
+def _resolve_cloud_user_id(request: Request, requested_user_id: str | None) -> str:
+    auth_user_id = _authenticated_user_id(request)
+    if auth_user_id:
+        if requested_user_id and requested_user_id != auth_user_id:
+            raise HTTPException(status_code=403, detail="user_id mismatch")
+        return auth_user_id
+    if not requested_user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    return requested_user_id
+
+
+def _get_cloud_run(conn, run_id: str, request: Request) -> dict[str, object]:
+    auth_user_id = _authenticated_user_id(request)
+    if auth_user_id:
+        return get_run_for_user(conn, run_id, user_id=auth_user_id)
+    return get_run(conn, run_id)
+
+
+def _require_profile_access(request: Request, target_profile_id: int) -> None:
+    try:
+        require_target_profile_access(
+            request.app.state.conn,
+            target_profile_id,
+            user_id=_authenticated_user_id(request),
+        )
+    except ProfileAccessDenied as exc:
+        raise HTTPException(status_code=403, detail="target profile not accessible") from exc
+
+
 def _render(
     request: Request,
     template_name: str,
@@ -1687,6 +1790,10 @@ def _render(
 ) -> HTMLResponse:
     template = request.app.state.templates.get_template(template_name)
     context.setdefault("deployment_status", request.app.state.deployment_status)
+    context.setdefault(
+        "storage_label",
+        "Hosted on Railway" if is_hosted_deployment() else "SQLite local",
+    )
     return HTMLResponse(
         template.render(request=request, **context),
         status_code=status_code,
