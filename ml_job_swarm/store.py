@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from ml_job_swarm.db.protocol import Database
+    from ml_job_swarm.db.sqlite_backend import SQLiteDatabase
 
 
 SCHEMA_SQL = """
@@ -355,13 +360,28 @@ CREATE TABLE IF NOT EXISTS llm_requests (
 def connect(
     path: str | Path = ":memory:", *, check_same_thread: bool = True
 ) -> sqlite3.Connection:
-    conn = sqlite3.connect(str(path), check_same_thread=check_same_thread)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+    from ml_job_swarm.db.sqlite_backend import connect_sqlite
+
+    return connect_sqlite(path, check_same_thread=check_same_thread).native
 
 
-def init_db(conn: sqlite3.Connection) -> None:
+def _require_sqlite_connection(
+    conn: sqlite3.Connection | "Database",
+) -> sqlite3.Connection:
+    from ml_job_swarm.db.postgres_backend import PostgresDatabase
+    from ml_job_swarm.db.sqlite_backend import SQLiteDatabase
+
+    if isinstance(conn, SQLiteDatabase):
+        return conn.native
+    if isinstance(conn, PostgresDatabase):
+        raise NotImplementedError("Postgres schema init is implemented in Phase B1 migrations")
+    if isinstance(conn, sqlite3.Connection):
+        return conn
+    raise TypeError(f"Unsupported database connection type: {type(conn)!r}")
+
+
+def init_db(conn: sqlite3.Connection | "Database") -> None:
+    conn = _require_sqlite_connection(conn)
     conn.executescript(SCHEMA_SQL)
     _ensure_column(
         conn,
@@ -501,7 +521,8 @@ def _migrate_resume_assets_user_scope(conn: sqlite3.Connection) -> None:
     )
 
 
-def table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+def table_columns(conn: sqlite3.Connection | "Database", table: str) -> set[str]:
+    conn = _require_sqlite_connection(conn)
     if not table.replace("_", "").isalnum():
         raise ValueError(f"Invalid table name: {table}")
 
