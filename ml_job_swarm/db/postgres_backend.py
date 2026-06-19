@@ -60,7 +60,9 @@ class PostgresDatabase:
         return PostgresCursor(cursor)
 
     def executescript(self, sql: str) -> None:
-        raise NotImplementedError("Postgres schema init is implemented in Phase B1 migrations")
+        from ml_job_swarm.db.postgres_schema import apply_postgres_schema
+
+        apply_postgres_schema(self)
 
     def commit(self) -> None:
         self._conn.commit()

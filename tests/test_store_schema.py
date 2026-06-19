@@ -14,6 +14,8 @@ EXPECTED_TABLES = {
     "ingestion_runs",
     "source_friction_events",
     "admin_audit_events",
+    "cloud_runs",
+    "cloud_run_events",
     "job_snapshots",
     "jobs",
     "resume_assets",

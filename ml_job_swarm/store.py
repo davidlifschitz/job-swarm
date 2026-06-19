@@ -381,6 +381,14 @@ def _require_sqlite_connection(
 
 
 def init_db(conn: sqlite3.Connection | "Database") -> None:
+    from ml_job_swarm.db.postgres_backend import PostgresDatabase
+
+    if isinstance(conn, PostgresDatabase):
+        from ml_job_swarm.db.postgres_schema import apply_postgres_schema
+
+        apply_postgres_schema(conn)
+        return
+
     conn = _require_sqlite_connection(conn)
     conn.executescript(SCHEMA_SQL)
     _ensure_column(
@@ -522,6 +530,13 @@ def _migrate_resume_assets_user_scope(conn: sqlite3.Connection) -> None:
 
 
 def table_columns(conn: sqlite3.Connection | "Database", table: str) -> set[str]:
+    from ml_job_swarm.db.postgres_backend import PostgresDatabase
+
+    if isinstance(conn, PostgresDatabase):
+        from ml_job_swarm.db.postgres_schema import postgres_table_columns
+
+        return postgres_table_columns(conn, table)
+
     conn = _require_sqlite_connection(conn)
     if not table.replace("_", "").isalnum():
         raise ValueError(f"Invalid table name: {table}")
