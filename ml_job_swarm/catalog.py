@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 import json
-import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from ml_job_swarm.db.connection import StoreConnection, backend_kind_from_conn
+from ml_job_swarm.db.dialect import insert_ignore_sql
 from ml_job_swarm.source_policy import classify_source_url
 
 
@@ -41,7 +42,7 @@ def load_seed_companies(path: Path) -> list[SeedCompany]:
     return companies
 
 
-def import_seed_companies(conn: sqlite3.Connection, path: Path) -> int:
+def import_seed_companies(conn: StoreConnection, path: Path) -> int:
     companies = load_seed_companies(path)
     imported = 0
 
@@ -49,21 +50,24 @@ def import_seed_companies(conn: sqlite3.Connection, path: Path) -> int:
         reviewed_sources = _reviewed_seed_sources(company)
         primary_source = reviewed_sources[0]
 
+        company_columns = [
+            "name",
+            "normalized_name",
+            "aliases_json",
+            "categories_json",
+            "stage",
+            "priority_tier",
+            "careers_url",
+            "ats_type",
+            "source_quality",
+        ]
         cursor = conn.execute(
-            """
-            INSERT OR IGNORE INTO companies (
-              name,
-              normalized_name,
-              aliases_json,
-              categories_json,
-              stage,
-              priority_tier,
-              careers_url,
-              ats_type,
-              source_quality
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
+            insert_ignore_sql(
+                "companies",
+                ["normalized_name"],
+                company_columns,
+                backend_kind_from_conn(conn),
+            ),
             (
                 company.name,
                 _normalize_name(company.name),
@@ -108,18 +112,21 @@ def import_seed_companies(conn: sqlite3.Connection, path: Path) -> int:
             "SELECT id FROM companies WHERE normalized_name = ?",
             (_normalize_name(company.name),),
         ).fetchone()["id"]
+        source_columns = [
+            "company_id",
+            "url",
+            "source_type",
+            "policy_mode",
+            "review_status",
+        ]
         for source_url, source_type, policy_mode in reviewed_sources:
             conn.execute(
-                """
-                INSERT OR IGNORE INTO job_sources (
-                  company_id,
-                  url,
-                  source_type,
-                  policy_mode,
-                  review_status
-                )
-                VALUES (?, ?, ?, ?, ?)
-                """,
+                insert_ignore_sql(
+                    "job_sources",
+                    ["company_id", "url"],
+                    source_columns,
+                    backend_kind_from_conn(conn),
+                ),
                 (
                     company_id,
                     source_url,
@@ -163,7 +170,7 @@ def _reviewed_seed_sources(company: SeedCompany) -> list[tuple[str, str, str]]:
 
 
 def submit_company_source(
-    conn: sqlite3.Connection, company_name: str, source_url: str
+    conn: StoreConnection, company_name: str, source_url: str
 ) -> int:
     policy = classify_source_url(source_url)
     status = "pending" if policy.mode != "blocked" else "blocked"
@@ -205,7 +212,7 @@ def submit_company_source(
 
 
 def review_company_source(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     queue_id: int,
     action: str,
     actor: str = "local-admin",
@@ -279,7 +286,7 @@ def review_company_source(
 
 
 def _mark_queue_reviewed(
-    conn: sqlite3.Connection, queue_id: int, status: str, actor: str
+    conn: StoreConnection, queue_id: int, status: str, actor: str
 ) -> None:
     conn.execute(
         """
@@ -294,19 +301,16 @@ def _mark_queue_reviewed(
 
 
 def _upsert_company_for_review(
-    conn: sqlite3.Connection, company_name: str, careers_url: str
+    conn: StoreConnection, company_name: str, careers_url: str
 ) -> int:
     normalized_name = _normalize_name(company_name)
     conn.execute(
-        """
-        INSERT OR IGNORE INTO companies (
-          name,
-          normalized_name,
-          careers_url,
-          source_quality
-        )
-        VALUES (?, ?, ?, ?)
-        """,
+        insert_ignore_sql(
+            "companies",
+            ["normalized_name"],
+            ["name", "normalized_name", "careers_url", "source_quality"],
+            backend_kind_from_conn(conn),
+        ),
         (company_name.strip(), normalized_name, careers_url, "reviewed"),
     )
     conn.execute(
@@ -328,23 +332,19 @@ def _upsert_company_for_review(
 
 
 def _upsert_job_source_for_review(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     company_id: int,
     source_url: str,
     source_type: str,
     policy_mode: str,
 ) -> int:
     conn.execute(
-        """
-        INSERT OR IGNORE INTO job_sources (
-          company_id,
-          url,
-          source_type,
-          policy_mode,
-          review_status
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """,
+        insert_ignore_sql(
+            "job_sources",
+            ["company_id", "url"],
+            ["company_id", "url", "source_type", "policy_mode", "review_status"],
+            backend_kind_from_conn(conn),
+        ),
         (company_id, source_url, source_type, policy_mode, "reviewed"),
     )
     conn.execute(

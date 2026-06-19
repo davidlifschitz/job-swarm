@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from dataclasses import asdict, dataclass
 from typing import Protocol
 
+from ml_job_swarm.db.connection import StoreConnection
 from ml_job_swarm.source_policy import classify_source_url
 
 
@@ -93,7 +93,7 @@ class AdapterRegistry:
 
 
 def refresh_source(
-    conn: sqlite3.Connection, source_id: int, adapter: JobSourceAdapter
+    conn: StoreConnection, source_id: int, adapter: JobSourceAdapter
 ) -> RefreshResult:
     source = _load_source(conn, source_id)
     run_id = _start_run(conn, source_count=1)
@@ -203,7 +203,7 @@ def refresh_source(
 
 
 def refresh_due_sources(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     adapter_registry: AdapterRegistry,
     source_types: set[str] | None = None,
 ) -> RefreshSummary:
@@ -316,7 +316,7 @@ def _failure_details(exc: Exception) -> dict[str, object]:
     return details
 
 
-def _load_source(conn: sqlite3.Connection, source_id: int) -> JobSource:
+def _load_source(conn: StoreConnection, source_id: int) -> JobSource:
     row = conn.execute(
         """
         SELECT id, company_id, url, source_type, policy_mode, review_status
@@ -337,7 +337,7 @@ def _load_source(conn: sqlite3.Connection, source_id: int) -> JobSource:
     )
 
 
-def _start_run(conn: sqlite3.Connection, *, source_count: int) -> int:
+def _start_run(conn: StoreConnection, *, source_count: int) -> int:
     cursor = conn.execute(
         "INSERT INTO ingestion_runs (source_count) VALUES (?)",
         (source_count,),
@@ -347,7 +347,7 @@ def _start_run(conn: sqlite3.Connection, *, source_count: int) -> int:
 
 
 def _finish_run(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: int,
     *,
     status: str,
@@ -376,7 +376,7 @@ def _finish_run(
 
 
 def _record_friction(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     *,
     source: JobSource,
     run_id: int,
@@ -410,7 +410,7 @@ def _record_friction(
 
 
 def _insert_snapshot(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     run_id: int,
     source: JobSource,
     raw_job: RawJob,
@@ -446,7 +446,7 @@ def _insert_snapshot(
 
 
 def _insert_job(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     source: JobSource,
     raw_job: RawJob,
     content_hash: str,
@@ -477,7 +477,7 @@ def _insert_job(
 
 
 def _update_job(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     job_id: int,
     source: JobSource,
     raw_job: RawJob,
@@ -524,7 +524,7 @@ def _update_job(
 
 
 def _find_existing_job(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     company_id: int,
     raw_job: RawJob,
     content_hash: str,
@@ -543,7 +543,7 @@ def _find_existing_job(
 
 
 def _close_stale_jobs(
-    conn: sqlite3.Connection,
+    conn: StoreConnection,
     source: JobSource,
     seen_job_ids: set[int],
 ) -> int:
@@ -586,7 +586,7 @@ def _job_params(
     )
 
 
-def _mark_source_checked(conn: sqlite3.Connection, source_id: int) -> None:
+def _mark_source_checked(conn: StoreConnection, source_id: int) -> None:
     conn.execute(
         """
         UPDATE job_sources
@@ -598,7 +598,7 @@ def _mark_source_checked(conn: sqlite3.Connection, source_id: int) -> None:
     conn.commit()
 
 
-def _company_name(conn: sqlite3.Connection, company_id: int) -> str:
+def _company_name(conn: StoreConnection, company_id: int) -> str:
     row = conn.execute("SELECT name FROM companies WHERE id = ?", (company_id,)).fetchone()
     if row is None:
         raise ValueError(f"Company not found: {company_id}")
