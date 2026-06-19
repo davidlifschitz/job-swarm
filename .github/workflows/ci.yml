@@ -13,13 +13,12 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  ML_JOB_SWARM_DB_PATH: ${{ runner.temp }}/ml-job-swarm/jobs.db
-
 jobs:
   python-tests:
     name: python-tests
     runs-on: ubuntu-latest
+    env:
+      ML_JOB_SWARM_DB_PATH: ${{ runner.temp }}/ml-job-swarm/jobs.db
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
