@@ -49,6 +49,22 @@
 </section>
 {% endif %}
 
+{% if active_cloud_run %}
+<section class="cloud-run-panel" aria-label="Active cloud run">
+  <div class="cloud-run-panel-copy">
+    <p class="section-kicker">Cloud operator</p>
+    <h2>Active cloud run</h2>
+    <p>Status <span class="status-badge cloud-status-badge cloud-status-{{ active_cloud_run.status }}">{{ active_cloud_run.status }}</span></p>
+  </div>
+  <dl class="cloud-run-panel-grid">
+    <div><dt>Current stage</dt><dd>{{ active_cloud_run.current_stage or "—" }}</dd></div>
+    <div><dt>Next action</dt><dd>{{ active_cloud_run.next_action or "—" }}</dd></div>
+    <div><dt>Run id</dt><dd><a href="/cloud/runs/{{ active_cloud_run.id }}">{{ active_cloud_run.id }}</a></dd></div>
+  </dl>
+  <a class="primary-link" href="/cloud/runs/{{ active_cloud_run.id }}">View run details</a>
+</section>
+{% endif %}
+
 <div class="dashboard-shell">
   <section class="dashboard-primary" aria-label="Job matches">
     {% if onboarding_required %}

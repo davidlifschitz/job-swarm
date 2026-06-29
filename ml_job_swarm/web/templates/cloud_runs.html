@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Cloud operator</p>
+    <h1>Cloud runs</h1>
+    <p class="catalog-freshness">Durable cloud workflows with live stage progress and manual-submit boundaries.</p>
+  </div>
+  <a class="text-link" href="/dashboard">Back to dashboard</a>
+</header>
+
+<section class="cloud-run-start-panel" aria-label="Start cloud workflow">
+  <h2>Start cloud workflow</h2>
+  <p>Queue a bounded cloud run for source refresh, fit review, and optional packet preparation.</p>
+  <form action="/cloud/runs/start" method="post" class="cloud-run-start-form">
+    <label>
+      Target profile id
+      <input name="target_profile_id" type="number" min="1" required value="{{ request.query_params.get('target_profile_id', '') }}">
+    </label>
+    <label>
+      <input type="checkbox" name="prepare_packets" value="on">
+      Prepare application packets (stops at manual final submit)
+    </label>
+    <label>
+      <input type="checkbox" name="llm_consent" value="on">
+      I consent to send job/profile fit-review content to the configured LLM provider.
+    </label>
+    <button type="submit">Start cloud run</button>
+  </form>
+</section>
+
+<section class="cloud-runs-table-section" aria-label="Cloud run history">
+  <h2>Run history</h2>
+  <table class="cloud-runs-table">
+    <thead>
+      <tr>
+        <th>Run</th>
+        <th>Status</th>
+        <th>Stage</th>
+        <th>Next action</th>
+        <th>Created</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for run in runs %}
+      <tr data-cloud-run-id="{{ run.id }}">
+        <td><a href="/cloud/runs/{{ run.id }}">{{ run.id }}</a></td>
+        <td><span class="status-badge cloud-status-badge cloud-status-{{ run.status }}">{{ run.status }}</span></td>
+        <td>{{ run.current_stage or "—" }}</td>
+        <td>{{ run.next_action or "—" }}</td>
+        <td>{{ run.created_at or "—" }}</td>
+        <td>{{ run.updated_at or "—" }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="6">No cloud runs yet.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="eyebrow">Cloud operator</p>
+    <h1>Cloud run {{ run.id }}</h1>
+    <p class="catalog-freshness">Requested action: {{ run.requested_action }}</p>
+  </div>
+  <a class="text-link" href="/cloud/runs">Back to cloud runs</a>
+</header>
+
+{% if request.query_params.get("cancel_status") == "ok" %}
+<p class="flash" role="status">Cloud run canceled.</p>
+{% elif request.query_params.get("start_status") == "queued" %}
+<p class="flash" role="status">Cloud run queued.</p>
+{% endif %}
+
+<section class="cloud-run-summary-panel" aria-label="Cloud run status">
+  <h2>Run status</h2>
+  <dl class="cloud-run-summary-grid">
+    <div><dt>Status</dt><dd><span class="status-badge cloud-status-badge cloud-status-{{ run.status }}">{{ run.status }}</span></dd></div>
+    <div><dt>Current stage</dt><dd>{{ run.current_stage or "—" }}</dd></div>
+    <div><dt>Next action</dt><dd>{{ run.next_action or "—" }}</dd></div>
+    <div><dt>Trace id</dt><dd>{{ run.trace_id }}</dd></div>
+    <div><dt>Created</dt><dd>{{ run.created_at or "—" }}</dd></div>
+    <div><dt>Updated</dt><dd>{{ run.updated_at or "—" }}</dd></div>
+    <div><dt>Last heartbeat</dt><dd>{{ run.last_heartbeat_at or "—" }}</dd></div>
+    {% if run.error_code %}
+    <div><dt>Error code</dt><dd>{{ run.error_code }}</dd></div>
+    {% endif %}
+    {% if run.error_message %}
+    <div><dt>Error message</dt><dd>{{ run.error_message }}</dd></div>
+    {% endif %}
+  </dl>
+  {% if not is_terminal %}
+  <form action="/cloud/runs/{{ run.id }}/cancel" method="post" class="cloud-run-cancel-form">
+    <label>
+      Cancel reason
+      <input name="reason" type="text" placeholder="Optional reason">
+    </label>
+    <button type="submit">Cancel run</button>
+  </form>
+  {% endif %}
+</section>
+
+<section class="cloud-run-events-panel" aria-label="Cloud run events">
+  <h2>Events</h2>
+  <table class="cloud-run-events-table">
+    <thead>
+      <tr>
+        <th>Time</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Stage</th>
+        <th>Message</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for event in events %}
+      <tr data-event-id="{{ event.id }}">
+        <td>{{ event.created_at or "—" }}</td>
+        <td>{{ event.event_type }}</td>
+        <td>{{ event.status }}</td>
+        <td>{{ event.stage }}</td>
+        <td>{{ event.message }}</td>
+      </tr>
+      {% else %}
+      <tr>
+        <td colspan="5">No events recorded.</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="cloud-run-manifest-panel" aria-label="Output manifest">
+  <h2>Output manifest</h2>
+  <pre class="cloud-run-manifest">{{ output_manifest | tojson(indent=2) }}</pre>
+</section>
+{% endblock %}
