@@ -1,0 +1,164 @@
+name: Nightly seed audit
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-seed-audit
+  cancel-in-progress: false
+
+jobs:
+  live-seed-audit:
+    name: live-seed-audit
+    runs-on: ubuntu-latest
+    env:
+      ML_JOB_SWARM_DB_PATH: /tmp/audit.db
+      AUDIT_DB_PATH: /tmp/audit.db
+      AUDIT_ARTIFACT_DIR: audit-artifact
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --frozen
+
+      - name: Prepare audit database
+        run: |
+          mkdir -p "${AUDIT_ARTIFACT_DIR}"
+          uv run python - <<'PY'
+          from pathlib import Path
+
+          from ml_job_swarm.store import connect, init_db
+
+          db_path = Path("/tmp/audit.db")
+          conn = connect(db_path)
+          init_db(conn)
+          previous_run_id = conn.execute(
+              "SELECT COALESCE(MAX(id), 0) FROM ingestion_runs"
+          ).fetchone()[0]
+          Path("/tmp/previous_run_id.txt").write_text(str(previous_run_id), encoding="utf-8")
+          conn.close()
+          PY
+
+      - name: Run live public ATS refresh
+        id: refresh
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run ml-job-swarm refresh \
+            --public-ats \
+            --db /tmp/audit.db \
+            --seed data/seed_companies.json \
+            | tee "${AUDIT_ARTIFACT_DIR}/refresh_summary.json"
+
+      - name: Evaluate refresh audit metrics
+        id: evaluate
+        if: ${{ always() && steps.refresh.outcome != 'cancelled' }}
+        run: |
+          uv run python - <<'PY'
+          import importlib.util
+          import json
+          import sys
+          import time
+          from pathlib import Path
+
+          from ml_job_swarm.product_goals import build_live_smoke_product_metrics
+          from ml_job_swarm.store import connect
+
+          repo_root = Path.cwd()
+          spec = importlib.util.spec_from_file_location(
+              "seed_refresh_audit",
+              repo_root / "scripts" / "seed_refresh_audit.py",
+          )
+          audit = importlib.util.module_from_spec(spec)
+          assert spec.loader is not None
+          spec.loader.exec_module(audit)
+
+          artifact_dir = Path("audit-artifact")
+          db_path = Path("/tmp/audit.db")
+          refresh_summary_path = artifact_dir / "refresh_summary.json"
+          if not refresh_summary_path.is_file():
+              print(
+                  "Missing refresh summary; live refresh did not produce JSON output.",
+                  file=sys.stderr,
+              )
+              sys.exit(1)
+
+          refresh_summary = json.loads(
+              refresh_summary_path.read_text(encoding="utf-8")
+          )
+          previous_run_id = int(
+              Path("/tmp/previous_run_id.txt").read_text(encoding="utf-8")
+          )
+
+          started_at = time.monotonic()
+          conn = connect(db_path)
+          source_failures = audit.load_source_failures(
+              conn, since_run_id=previous_run_id
+          )
+          conn.close()
+
+          product_metrics = build_live_smoke_product_metrics(
+              refresh_summary=refresh_summary,
+              packet_prepared=False,
+              saved_jobs_count=0,
+              elapsed_seconds=round(time.monotonic() - started_at, 2),
+              source_failures=source_failures,
+          )
+          audit_passed, audit_violations = audit.evaluate_refresh_audit(
+              refresh_summary=refresh_summary,
+              product_metrics=product_metrics,
+          )
+
+          payload = {
+              "audit_passed": audit_passed,
+              "audit_violations": audit_violations,
+              "product_metrics": product_metrics,
+              "refresh_summary": refresh_summary,
+              "source_failures": source_failures,
+          }
+          output_path = artifact_dir / "nightly_seed_audit.json"
+          output_path.write_text(
+              json.dumps(payload, indent=2, sort_keys=True),
+              encoding="utf-8",
+          )
+          print(json.dumps(payload, sort_keys=True))
+
+          success_rate = product_metrics["source_refresh"]["supported_source_success_rate"]
+          target_success_rate = product_metrics["source_refresh"]["target_success_rate"]
+          if success_rate < target_success_rate:
+              print(
+                  f"Supported source success rate {success_rate:.4f} "
+                  f"is below target {target_success_rate:.4f}.",
+                  file=sys.stderr,
+              )
+
+          if int(refresh_summary.get("failures", 0) or 0) > 0:
+              print(
+                  f"Refresh reported {refresh_summary['failures']} failure(s).",
+                  file=sys.stderr,
+              )
+
+          if not audit_passed:
+              sys.exit(1)
+          PY
+
+      - name: Upload audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-seed-audit-${{ github.run_id }}
+          path: audit-artifact/
+          if-no-files-found: error
