@@ -34,6 +34,26 @@ jobs:
       - name: Run pytest
         run: uv run pytest -q
 
+  product-gates:
+    name: product-gates
+    runs-on: ubuntu-latest
+    env:
+      ML_JOB_SWARM_DB_PATH: /tmp/ml-job-swarm/jobs.db
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Prepare test database directory
+        run: mkdir -p /tmp/ml-job-swarm
+      - name: Run product gate tests
+        run: uv run pytest -q tests/test_product_goals.py tests/test_seed_policy_gate.py tests/test_seed_refresh_audit.py tests/test_golden_profile_matching.py tests/test_catalog_quality_gate.py tests/test_error_handling_gates.py tests/test_operator_observability_gate.py
+
   postgres-tests:
     name: postgres-tests
     runs-on: ubuntu-latest
