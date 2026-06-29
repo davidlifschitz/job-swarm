@@ -9,6 +9,7 @@ from ml_job_swarm.product_goals import (
     audit_seed_sources,
     build_live_smoke_product_metrics,
     catalog_quality_metrics,
+    evaluate_product_metrics,
     local_referral_alias_match_report,
     manual_submit_boundary_report,
     next_action_coverage,
@@ -55,6 +56,56 @@ def test_seed_sources_have_explicit_policy_classification():
         "blocked",
         "needs_review",
     }
+
+
+def test_evaluate_product_metrics_passes_on_good_live_smoke_metrics():
+    metrics = build_live_smoke_product_metrics(
+        refresh_summary={
+            "jobs_seen": 422,
+            "sources_attempted": 10,
+            "sources_succeeded": 9,
+        },
+        packet_prepared=True,
+        saved_jobs_count=1,
+        elapsed_seconds=45.0,
+    )
+
+    assert evaluate_product_metrics(metrics) == []
+
+
+def test_evaluate_product_metrics_reports_violations_on_bad_metrics():
+    violations = evaluate_product_metrics(
+        {
+            "first_run": {
+                "browser_e2e_ok": False,
+                "elapsed_seconds": 120.0,
+                "target_seconds": 600,
+            },
+            "source_refresh": {
+                "supported_source_success_rate": 0.5,
+                "target_success_rate": 0.9,
+            },
+            "catalog": {
+                "jobs_seen": 0,
+                "target_jobs_seen_min": 1,
+            },
+            "application_packets": {
+                "prepared_packet_rate": 0.5,
+                "target_prepared_packet_rate": 0.95,
+            },
+            "manual_submission": {
+                "external_submit_paths": 2,
+                "target_external_submit_paths": 0,
+            },
+        }
+    )
+
+    assert len(violations) == 5
+    assert any("success rate" in violation.casefold() for violation in violations)
+    assert any("prepared packet rate" in violation.casefold() for violation in violations)
+    assert any("external submit path" in violation.casefold() for violation in violations)
+    assert any("jobs_seen" in violation for violation in violations)
+    assert any("browser e2e" in violation.casefold() for violation in violations)
 
 
 def test_live_smoke_reports_quantitative_product_metrics():

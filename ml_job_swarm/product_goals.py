@@ -81,6 +81,70 @@ def audit_seed_sources(
     return records
 
 
+def evaluate_product_metrics(metrics: Mapping[str, object]) -> list[str]:
+    violations: list[str] = []
+
+    source_refresh = _metric_section(metrics, "source_refresh")
+    success_rate = _metric_float(source_refresh.get("supported_source_success_rate"))
+    target_success_rate = _metric_float(
+        source_refresh.get("target_success_rate"),
+        default=0.9,
+    )
+    if success_rate is not None and success_rate < target_success_rate:
+        violations.append(
+            "Supported source success rate "
+            f"{success_rate:.4f} is below target {target_success_rate:.4f}."
+        )
+
+    application_packets = _metric_section(metrics, "application_packets")
+    prepared_packet_rate = _metric_float(application_packets.get("prepared_packet_rate"))
+    target_prepared_packet_rate = _metric_float(
+        application_packets.get("target_prepared_packet_rate"),
+        default=0.95,
+    )
+    if (
+        prepared_packet_rate is not None
+        and prepared_packet_rate < target_prepared_packet_rate
+    ):
+        violations.append(
+            "Prepared packet rate "
+            f"{prepared_packet_rate:.4f} is below target {target_prepared_packet_rate:.4f}."
+        )
+
+    manual_submission = _metric_section(metrics, "manual_submission")
+    external_submit_paths = _metric_int(manual_submission.get("external_submit_paths"))
+    target_external_submit_paths = _metric_int(
+        manual_submission.get("target_external_submit_paths"),
+        default=0,
+    )
+    if (
+        external_submit_paths is not None
+        and external_submit_paths != target_external_submit_paths
+    ):
+        violations.append(
+            "Manual submission has "
+            f"{external_submit_paths} external submit path(s); target is "
+            f"{target_external_submit_paths}."
+        )
+
+    catalog = _metric_section(metrics, "catalog")
+    jobs_seen = _metric_int(catalog.get("jobs_seen"))
+    target_jobs_seen_min = _metric_int(catalog.get("target_jobs_seen_min"), default=1)
+    if jobs_seen is not None and jobs_seen < target_jobs_seen_min:
+        violations.append(
+            f"Catalog jobs_seen {jobs_seen} is below target minimum {target_jobs_seen_min}."
+        )
+
+    first_run = _metric_section(metrics, "first_run")
+    elapsed_seconds = _metric_float(first_run.get("elapsed_seconds"))
+    if elapsed_seconds is not None and not bool(first_run.get("browser_e2e_ok")):
+        violations.append(
+            "First-run browser E2E check failed while elapsed_seconds was recorded."
+        )
+
+    return violations
+
+
 def build_live_smoke_product_metrics(
     *,
     refresh_summary: Mapping[str, int],
@@ -364,3 +428,28 @@ def _normalize_company_name(value: object) -> str:
 
 def _string_value(value: object) -> str:
     return str(value or "").strip()
+
+
+def _metric_section(metrics: Mapping[str, object], key: str) -> Mapping[str, object]:
+    section = metrics.get(key)
+    if isinstance(section, Mapping):
+        return section
+    return {}
+
+
+def _metric_float(value: object, *, default: float | None = None) -> float | None:
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _metric_int(value: object, *, default: int | None = None) -> int | None:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
