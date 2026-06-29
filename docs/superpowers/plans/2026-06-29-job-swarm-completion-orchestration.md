@@ -112,7 +112,7 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
   - **Subagent:** generalPurpose
   - **Acceptance:** CI runs gate tests subset; workflow YAML valid
 
-- [ ] **W4-T2 Nightly live seed audit workflow**
+- [x] **W4-T2 Nightly live seed audit workflow**
   - **Owns:** `.github/workflows/nightly-seed-audit.yml` (new)
   - **Do NOT touch:** application code
   - **Subagent:** generalPurpose
