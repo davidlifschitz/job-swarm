@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "profile_fixture": "../golden_profiles/senior_ml_engineer_remote_nyc.json",
+  "bucket_mapping": {
+    "pass": "strong",
+    "soft_pass": "moderate",
+    "reject": "weak"
+  }
+}
