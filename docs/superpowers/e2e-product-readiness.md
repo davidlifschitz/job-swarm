@@ -26,6 +26,10 @@ the current V1 surface as done.
 | Deployment truth | Done | `plans/2026-05-11-product-grade-first-run.md` | UI reports local vs configured public URL honestly. | 2026-05-11 |
 | Cloud production runtime baseline | Done | `../cloud-production-server-goals.md` | JSON cloud-run API persists lifecycle state, emits run events, gates sources through source policy, executes queued or create-and-run cloud workflows through refresh/matching/packet-prep worker stages, records packet manifests, supports heartbeat/cancel, reports health/readiness, ships a queue-draining worker command, compares parity fixtures, redacts sensitive payloads, and blocks automated final submit. | 2026-05-14 |
 | Quantitative product gates | Done | `specs/2026-05-14-final-product-quantitative-goals-design.md` | `ml_job_swarm/product_goals.py` measures seed-source classification, smoke metrics, next-action coverage, manual-submit boundary, referral alias precision, and catalog quality; live smoke emits `product_metrics`. | 2026-05-14 |
+| Cloud operator UI | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | Dashboard shows active cloud run; `/cloud/runs` list + detail pages; cancel/start forms; JWT user scoping. `uv run pytest tests/test_routes_cloud_ui.py -q` green. | 2026-06-29 |
+| Product gate CI | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `.github/workflows/ci.yml` `product-gates` job runs seed-policy, golden-profile, catalog-quality, seed-refresh-audit, and observability gate tests on PR/push. | 2026-06-29 |
+| Nightly seed audit (scheduled) | Pending | `plans/2026-06-29-job-swarm-completion-orchestration.md` | Offline `scripts/seed_refresh_audit.py` + `tests/test_seed_refresh_audit.py` pass locally; `.github/workflows/nightly-seed-audit.yml` scheduled workflow not yet committed (W4-T2). | 2026-06-29 |
+| Runtime parity fixtures | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `tests/fixtures/cloud_parity/` baseline; `scripts/run-cloud-parity-check.sh` and `.github/workflows/cloud-parity.yml` run `tests/test_cloud_runtime_parity_fixtures.py` on PR/push. | 2026-06-29 |
 
 ## V1 Done Definition
 
@@ -67,3 +71,7 @@ LinkedIn/Indeed scraping, CAPTCHA bypass, or automatic final submission.
   tests/test_live_e2e_smoke_script.py tests/test_source_policy.py -q` -> 18
   passed for quantitative product gates and live-smoke metric output.
 - 2026-05-14: `uv run pytest -q` -> 402 passed.
+- 2026-06-29: `uv run pytest -q` -> 530 passed, 12 skipped (quantitative gates, cloud operator UI, cloud SLO fixtures, and CI gate subsets).
+- 2026-06-29: `uv run pytest tests/test_routes_cloud_ui.py -q` -> cloud operator HTML console routes green.
+- 2026-06-29: `uv run pytest tests/test_product_goals.py tests/test_seed_policy_gate.py tests/test_seed_refresh_audit.py tests/test_golden_profile_matching.py tests/test_catalog_quality_gate.py tests/test_error_handling_gates.py tests/test_operator_observability_gate.py -q` -> product-gates CI subset green.
+- 2026-06-29: `./scripts/run-cloud-parity-check.sh` -> runtime parity fixture baseline green.

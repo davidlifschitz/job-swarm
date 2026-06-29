@@ -151,3 +151,99 @@ uv run pytest tests/test_postgres_schema.py -q
 
 - [cloud-production-server-goals.md](cloud-production-server-goals.md) — cloud runtime SLOs (post-Phase B)
 - [product-tiers.md](product-tiers.md) — tier overview
+
+## Dry-run verification checklist (local, no production secrets)
+
+Run these before Railway/Supabase cutover. They use Docker sidecars, fixture adapters, and test JWTs — no live `DATABASE_URL`, service-role keys, or Railway tokens required.
+
+### 1. Full test suite
+
+```bash
+uv sync
+uv run pytest -q
+```
+
+Expect ~530 passed, 12 skipped.
+
+### 2. Hosted container preflight (Phase A SQLite)
+
+```bash
+./scripts/railway-preflight.sh
+```
+
+Builds the Docker image, starts a container with fake Supabase env vars, hits `/healthz`, and runs `scripts/smoke-hosted.sh` (auth gate + signed JWT path).
+
+### 3. Phase B Postgres preflight (optional)
+
+```bash
+PREFLIGHT_POSTGRES=1 ./scripts/railway-preflight.sh
+```
+
+Adds a local `postgres:16-alpine` sidecar and verifies `database_backend: postgresql` plus Supabase Storage mode via `scripts/smoke-postgres-cutover.sh`.
+
+### 4. Env template sanity
+
+```bash
+grep -E '^[A-Z_]+=' .env.hosted.example | cut -d= -f1 | sort
+```
+
+Confirm vars match the tables in this doc (web + worker + Phase A/B blocks).
+
+### 5. Offline seed refresh audit
+
+```bash
+db="$(mktemp /tmp/seed-audit-XXXXXX.db)"
+uv run python scripts/seed_refresh_audit.py --db "${db}"
+rm -f "${db}"
+```
+
+Expect JSON with `audit_passed: true`, attempted/succeeded counts, and no fixture refresh failures.
+
+### 6. Product gate subset (matches CI `product-gates` job)
+
+```bash
+uv run pytest -q \
+  tests/test_product_goals.py \
+  tests/test_seed_policy_gate.py \
+  tests/test_seed_refresh_audit.py \
+  tests/test_golden_profile_matching.py \
+  tests/test_catalog_quality_gate.py \
+  tests/test_error_handling_gates.py \
+  tests/test_operator_observability_gate.py
+```
+
+### 7. Cloud runtime parity fixtures
+
+```bash
+chmod +x scripts/run-cloud-parity-check.sh
+./scripts/run-cloud-parity-check.sh
+```
+
+### 8. Cloud health probe (against preflight container)
+
+After step 2 leaves a healthy container (or start the app locally on port 8765):
+
+```bash
+BASE_URL=http://127.0.0.1:18080 ./scripts/cloud-health-probe.sh
+# or: BASE_URL=http://127.0.0.1:8765 ./scripts/cloud-health-probe.sh
+```
+
+### 9. SQLite → Postgres migration dry-run (local Postgres only)
+
+With a local Postgres instance (no Supabase secrets):
+
+```bash
+export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/jobs
+ML_JOB_SWARM_DB_PATH=/tmp/ml-job-swarm-migrate.db uv run pytest tests/test_hosted_migration.py -q
+export ML_JOB_SWARM_SOURCE_DB=/tmp/ml-job-swarm-migrate.db
+./scripts/railway-cutover.sh --dry-run
+```
+
+### Ops-only (requires production secrets — not dry-run)
+
+These steps cannot be verified locally without maintainer credentials:
+
+- **OPS-1** Railway Phase B cutover: set live `DATABASE_URL`, run `railway-cutover.sh` (non–dry-run), deploy worker service.
+- **OPS-2** Supabase bucket creation + secret rotation: `supabase link`, `supabase db push`, Storage policies, `./scripts/sync-supabase-secrets.sh --railway`.
+- **OPS-3** Apple notarization / Tier 3 release (see `docs/tier1-macos-release.md`).
+- **Nightly live seed audit**: scheduled `.github/workflows/nightly-seed-audit.yml` (W4-T2) — pending; offline audit in step 5 is the local substitute.
