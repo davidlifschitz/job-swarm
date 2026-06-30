@@ -202,7 +202,9 @@ rm -f "${db}"
 
 Expect JSON with `audit_passed: true`, attempted/succeeded counts, and no fixture refresh failures.
 
-### 6. Product gate subset (matches CI `product-gates` job)
+### 6. Product gate subset (included in CI `product-gates` via `verify-ops-readiness.sh`)
+
+The CI `product-gates` job runs `./scripts/verify-ops-readiness.sh`, which includes this pytest subset plus parity, load, seed audit, and cutover dry-run checks. To run only the gate tests:
 
 ```bash
 uv run pytest -q \
