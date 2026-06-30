@@ -158,17 +158,36 @@ Run these before Railway/Supabase cutover. They use Docker sidecars, fixture ada
 
 **Quick path:** `./scripts/verify-ops-readiness.sh` runs steps 5–7 and 9 below (plus optional health probe when `BASE_URL` is set).
 
+**CI coverage on `main` (as of Phase B):**
+
+| Step | Automated in CI? | Job / workflow |
+|------|------------------|----------------|
+| 1 | Yes | `python-tests` (`.github/workflows/ci.yml`) |
+| 2 | No — local-only | Partial overlap: `docker-build` smoke only (W10 will add full preflight) |
+| 3 | No — local-only | Partial overlap: `postgres-tests` pytest subset (W10 will add full preflight) |
+| 4 | No — local-only | — |
+| 5 | Yes | `product-gates` → `verify-ops-readiness.sh` |
+| 6 | Yes | `product-gates` → `verify-ops-readiness.sh` |
+| 7 | Yes | `product-gates` + `cloud-parity` (`.github/workflows/cloud-parity.yml`) |
+| 8 | No — local-only | Skipped in CI unless `BASE_URL` set (W10 will add) |
+| 9 | Yes | `product-gates` → `verify-ops-readiness.sh` |
+
 Individual steps:
 
 ### 1. Full test suite
+
+**CI:** `python-tests` — runs on every push/PR to `main`.
+
 ```bash
 uv sync
 uv run pytest -q
 ```
 
-Expect ~530 passed, 12 skipped.
+Expect 531 passed, 12 skipped.
 
 ### 2. Hosted container preflight (Phase A SQLite)
+
+**Local-only** (not fully CI-covered yet; W10 will wire `railway-preflight.sh` into CI). Partial overlap: `docker-build` builds the image and runs `smoke-hosted.sh`, but does not run the full preflight script.
 
 ```bash
 ./scripts/railway-preflight.sh
@@ -178,6 +197,8 @@ Builds the Docker image, starts a container with fake Supabase env vars, hits `/
 
 ### 3. Phase B Postgres preflight (optional)
 
+**Local-only** (not fully CI-covered yet; W10 will add). Partial overlap: `postgres-tests` runs hosted Postgres pytest (`-k "postgres or hosted_migration or hosted_cutover"`), but not `PREFLIGHT_POSTGRES=1 ./scripts/railway-preflight.sh`.
+
 ```bash
 PREFLIGHT_POSTGRES=1 ./scripts/railway-preflight.sh
 ```
@@ -185,6 +206,8 @@ PREFLIGHT_POSTGRES=1 ./scripts/railway-preflight.sh
 Adds a local `postgres:16-alpine` sidecar and verifies `database_backend: postgresql` plus Supabase Storage mode via `scripts/smoke-postgres-cutover.sh`.
 
 ### 4. Env template sanity
+
+**Local-only** — no CI job validates `.env.hosted.example` keys against this doc.
 
 ```bash
 grep -E '^[A-Z_]+=' .env.hosted.example | cut -d= -f1 | sort
@@ -194,6 +217,8 @@ Confirm vars match the tables in this doc (web + worker + Phase A/B blocks).
 
 ### 5. Offline seed refresh audit
 
+**CI:** `product-gates` via `./scripts/verify-ops-readiness.sh`.
+
 ```bash
 db="$(mktemp /tmp/seed-audit-XXXXXX.db)"
 uv run python scripts/seed_refresh_audit.py --db "${db}"
@@ -202,9 +227,11 @@ rm -f "${db}"
 
 Expect JSON with `audit_passed: true`, attempted/succeeded counts, and no fixture refresh failures.
 
-### 6. Product gate subset (included in CI `product-gates` via `verify-ops-readiness.sh`)
+### 6. Product gate subset
 
-The CI `product-gates` job runs `./scripts/verify-ops-readiness.sh`, which includes this pytest subset plus parity, load, seed audit, and cutover dry-run checks. To run only the gate tests:
+**CI:** `product-gates` via `./scripts/verify-ops-readiness.sh` (this pytest subset plus steps 5, 7, and 9).
+
+To run only the gate tests locally:
 
 ```bash
 uv run pytest -q \
@@ -219,12 +246,16 @@ uv run pytest -q \
 
 ### 7. Cloud runtime parity fixtures
 
+**CI:** `product-gates` via `verify-ops-readiness.sh`, and again in standalone `cloud-parity` (`.github/workflows/cloud-parity.yml`).
+
 ```bash
 chmod +x scripts/run-cloud-parity-check.sh
 ./scripts/run-cloud-parity-check.sh
 ```
 
 ### 8. Cloud health probe (against preflight container)
+
+**Local-only** (not CI-covered yet; W10 will add). `verify-ops-readiness.sh` runs this only when `BASE_URL` is set — CI does not set it.
 
 After step 2 leaves a healthy container (or start the app locally on port 8765):
 
@@ -234,6 +265,8 @@ BASE_URL=http://127.0.0.1:18080 ./scripts/cloud-health-probe.sh
 ```
 
 ### 9. SQLite → Postgres migration dry-run (no DATABASE_URL)
+
+**CI:** `product-gates` via `./scripts/verify-ops-readiness.sh` (temp SQLite fixture + `--dry-run`).
 
 Offline checksum validation only (no Postgres or Supabase secrets):
 
