@@ -25,6 +25,9 @@ PRODUCT_GATE_TESTS=(
 echo "==> Product gate tests"
 uv run pytest -q "${PRODUCT_GATE_TESTS[@]}"
 
+echo "==> Hosted env template gate"
+uv run pytest -q tests/test_hosted_env_template.py
+
 echo "==> Cloud parity fixtures"
 chmod +x scripts/run-cloud-parity-check.sh
 ./scripts/run-cloud-parity-check.sh

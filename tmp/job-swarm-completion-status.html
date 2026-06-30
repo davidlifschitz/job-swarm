@@ -207,14 +207,14 @@
   <div class="wrap">
     <h1>ML Job Swarm — What Changed &amp; What’s Left</h1>
     <p class="sub">
-      Branch <code>cursor/job-swarm-completion-a771</code> ·
-      <a href="https://github.com/davidlifschitz/job-swarm/pull/1">Draft PR #1</a> ·
-      Generated 2026-06-29
+      Branch <code>main</code> @ <code>08ae122</code> ·
+      PRs <a href="https://github.com/davidlifschitz/job-swarm/pull/1">#1</a>–<a href="https://github.com/davidlifschitz/job-swarm/pull/5">#5</a> merged ·
+      Generated 2026-06-30
     </p>
 
     <dl class="hero-stats">
-      <div class="stat"><dt>Tests</dt><dd>530 pass</dd></div>
-      <div class="stat"><dt>Code waves</dt><dd>5 / 5</dd></div>
+      <div class="stat"><dt>Tests</dt><dd>531 pass</dd></div>
+      <div class="stat"><dt>Code waves</dt><dd>8 / 8</dd></div>
       <div class="stat"><dt>Seed sources</dt><dd>82 supported</dd></div>
       <div class="stat"><dt>Ops steps left</dt><dd>3</dd></div>
     </dl>
@@ -236,27 +236,114 @@
           <div class="tier-status"><span class="pill planned">Not started</span> Notarization, MAS, Android/PWA</div>
         </div>
       </div>
-      <div class="diagram">BEFORE (gap)                          AFTER THIS PR (code)
+      <div class="diagram">ON main (08ae122) — merged PRs #1–#5
 ─────────────────────────────────────────────────────────────────────────
 V1 local product ✅                     V1 local product ✅ (unchanged core)
-Cloud API only (JSON)                   + Cloud operator HTML UI (/cloud/runs)
-Metric helpers, no CI gates             + Threshold gates + product-gates CI job
-No parity/load probes in CI             + Parity fixtures + load test + cloud-parity.yml
-No nightly seed audit                   + nightly-seed-audit.yml (live ATS refresh)
-Missing .env.hosted.example             + .env.hosted.example template
-Tier 2 cutover = manual                 Still manual — runbook expanded, not executed
-Cloud SLO alerting/uptime               Still ops — probe script added, not deployed
-Apple notarization                      Still not started</div>
+Cloud JSON API + worker ✅                + Cloud operator HTML UI (/cloud/runs)
+Metric helpers only                       + Threshold gates + product-gates CI job
+No parity/load probes in CI               + Parity fixtures + load test + cloud-parity.yml
+No nightly seed audit                     + nightly-seed-audit.yml (live ATS refresh)
+Missing .env.hosted.example               + .env.hosted.example template
+No local ops verification bundle          + verify-ops-readiness.sh (runs in product-gates)
+railway-cutover required DATABASE_URL     + --dry-run works without production secrets
+Tier 2 cutover = manual                   Still manual — runbook expanded, not executed
+Cloud SLO alerting/uptime                 Still ops — probe script added, not deployed
+Apple notarization                        Still not started
+Final completion W9–W13                   In progress — doc sync, CI preflight, UI perf gate</div>
+    </section>
+
+    <!-- MERGED PRs -->
+    <section>
+      <h2>Merged to main (PRs #1–#5)</h2>
+      <table>
+        <thead>
+          <tr><th>PR</th><th>Commit</th><th>Summary</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="https://github.com/davidlifschitz/job-swarm/pull/1">#1</a></td>
+            <td><code>c6b4b47</code></td>
+            <td>Waves W1–W5: quantitative gates, cloud operator UI, SLO code, CI workflows, docs</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/davidlifschitz/job-swarm/pull/2">#2</a></td>
+            <td><code>7997a85</code></td>
+            <td>W8 checklist: mark W6–W8 complete on orchestration plan after PR #1 merge</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/davidlifschitz/job-swarm/pull/3">#3</a></td>
+            <td><code>e8fa5a6</code></td>
+            <td><code>railway-cutover.sh --dry-run</code> works without <code>DATABASE_URL</code></td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/davidlifschitz/job-swarm/pull/4">#4</a></td>
+            <td><code>435aea6</code></td>
+            <td><code>verify-ops-readiness.sh</code> — local Tier 2 pre-cutover check bundle</td>
+          </tr>
+          <tr>
+            <td><a href="https://github.com/davidlifschitz/job-swarm/pull/5">#5</a></td>
+            <td><code>08ae122</code></td>
+            <td>CI <code>product-gates</code> job runs <code>verify-ops-readiness.sh</code> on every PR/push</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- CI JOBS -->
+    <section>
+      <h2>CI on main</h2>
+      <table>
+        <thead>
+          <tr><th>Job / workflow</th><th>Trigger</th><th>What it runs</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>python-tests</code></td>
+            <td>PR + push to main</td>
+            <td>Full pytest suite (531 pass, 12 skipped)</td>
+          </tr>
+          <tr>
+            <td><code>product-gates</code></td>
+            <td>PR + push to main</td>
+            <td><code>./scripts/verify-ops-readiness.sh</code> — gate tests, parity, load, seed audit, cutover dry-run</td>
+          </tr>
+          <tr>
+            <td><code>postgres-tests</code></td>
+            <td>PR + push to main</td>
+            <td>Postgres / hosted migration integration subset</td>
+          </tr>
+          <tr>
+            <td><code>macos-build</code></td>
+            <td>PR + push to main</td>
+            <td>Swift build + app bundle + release smoke</td>
+          </tr>
+          <tr>
+            <td><code>docker-build</code></td>
+            <td>PR + push to main</td>
+            <td>Hosted Docker image + container smoke + JWT auth smoke</td>
+          </tr>
+          <tr>
+            <td><code>cloud-parity.yml</code></td>
+            <td>PR + push to main</td>
+            <td>Parity script + cloud load capacity pytest</td>
+          </tr>
+          <tr>
+            <td><code>nightly-seed-audit.yml</code></td>
+            <td>Daily 06:00 UTC</td>
+            <td>Live public ATS refresh; fails if success &lt; 90%; artifact <code>nightly_seed_audit.json</code></td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <!-- CHANGES BY WAVE -->
     <section>
-      <h2>Changes shipped (by wave)</h2>
+      <h2>Changes shipped (W1–W8 complete)</h2>
 
       <div class="wave">
         <div class="wave-head">
           <span class="wave-title">Wave 1 — Quantitative gates</span>
-          <span class="pill done">Done</span>
+          <span class="pill done">Complete</span>
         </div>
         <ul class="changes">
           <li><code>evaluate_product_metrics()</code> — fails when refresh &lt; 90%, packet rate &lt; 95%, external submit paths &gt; 0, etc.</li>
@@ -283,7 +370,7 @@ Apple notarization                      Still not started</div>
       <div class="wave">
         <div class="wave-head">
           <span class="wave-title">Wave 2 — Cloud operator UI</span>
-          <span class="pill done">Done</span>
+          <span class="pill done">Complete</span>
         </div>
         <ul class="changes">
           <li>Dashboard panel when a non-terminal cloud run exists (stage + next action)</li>
@@ -307,7 +394,7 @@ Apple notarization                      Still not started</div>
       <div class="wave">
         <div class="wave-head">
           <span class="wave-title">Wave 3 — Cloud SLO code</span>
-          <span class="pill done">Done</span>
+          <span class="pill done">Complete</span>
         </div>
         <ul class="changes">
           <li>Structured JSON logs on every cloud state transition</li>
@@ -337,10 +424,10 @@ Apple notarization                      Still not started</div>
       <div class="wave">
         <div class="wave-head">
           <span class="wave-title">Wave 4 — CI workflows</span>
-          <span class="pill done">Done</span>
+          <span class="pill done">Complete</span>
         </div>
         <ul class="changes">
-          <li><code>product-gates</code> job — runs gate test subset on every PR/push</li>
+          <li><code>product-gates</code> job — gate test subset on every PR/push (now runs full <code>verify-ops-readiness.sh</code> per PR #5)</li>
           <li><code>cloud-parity.yml</code> — parity + load tests on PR/push</li>
           <li><code>nightly-seed-audit.yml</code> — daily live public ATS refresh, fails if success &lt; 90%</li>
         </ul>
@@ -354,12 +441,12 @@ Apple notarization                      Still not started</div>
       <div class="wave">
         <div class="wave-head">
           <span class="wave-title">Wave 5 — Documentation</span>
-          <span class="pill done">Done</span>
+          <span class="pill done">Complete</span>
         </div>
         <ul class="changes">
           <li>Plan index + e2e-product-readiness updated with new slices</li>
           <li>Tier 2 dry-run verification checklist appended</li>
-          <li>Orchestration plan checklist (this run’s source of truth)</li>
+          <li>Orchestration plan checklist (2026-06-29 source of truth)</li>
         </ul>
         <div class="file-grid">
           <div class="file mod">docs/superpowers/plans/README.md</div>
@@ -368,30 +455,107 @@ Apple notarization                      Still not started</div>
           <div class="file new">docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md</div>
         </div>
       </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 6 — Doc sync &amp; local ops verification</span>
+          <span class="pill done">Complete</span>
+        </div>
+        <ul class="changes">
+          <li>Nightly seed audit marked Done in e2e readiness + plan index</li>
+          <li>Local ops verification table recorded (pytest, parity, load, migrate dry-run)</li>
+          <li>OPS runbook verified locally; production steps remain maintainer-only</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file mod">docs/superpowers/e2e-product-readiness.md</div>
+          <div class="file mod">docs/superpowers/plans/README.md</div>
+          <div class="file mod">docs/tier2-hosted-web.md</div>
+          <div class="file mod">docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md</div>
+        </div>
+      </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 7 — Merge to main</span>
+          <span class="pill done">Complete</span>
+        </div>
+        <ul class="changes">
+          <li>PR #1 merged — W1–W5 code on <code>main</code> at <code>c6b4b47</code></li>
+          <li>CI green: python-tests, product-gates, postgres-tests, cloud-parity, docker-build, macos-build</li>
+        </ul>
+      </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 8 — Post-merge verification</span>
+          <span class="pill done">Complete</span>
+        </div>
+        <ul class="changes">
+          <li>PRs #2–#5 merged: checklist update, cutover dry-run fix, ops readiness script, CI wiring</li>
+          <li><code>verify-ops-readiness.sh</code> — product gates + parity + load + seed audit + cutover dry-run</li>
+          <li><code>product-gates</code> CI job runs full ops readiness bundle (PR #5)</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file new">scripts/verify-ops-readiness.sh</div>
+          <div class="file new">tests/test_verify_ops_readiness_script.py</div>
+          <div class="file mod">scripts/railway-cutover.sh</div>
+          <div class="file mod">.github/workflows/ci.yml</div>
+        </div>
+      </div>
     </section>
 
     <!-- WHERE IT STILL NEEDS TO GO -->
     <section>
       <h2>Where it still needs to go</h2>
 
-      <h3><span class="pill next">Next</span> Merge &amp; verify CI</h3>
+      <h3><span class="pill next">In flight</span> Final completion waves W9–W13</h3>
+      <p style="color:var(--muted);margin:0 0 0.75rem;font-size:0.9rem;">Source: <code>docs/superpowers/plans/2026-06-30-job-swarm-final-completion.md</code></p>
+
       <div class="item">
         <div class="box open-box"></div>
         <div>
-          <div class="item-title">Merge PR #1 to main</div>
-          <div class="item-desc">Confirm GitHub Actions: python-tests, product-gates, postgres-tests, cloud-parity, docker-build all green.</div>
+          <div class="item-title">W9 — Doc sync</div>
+          <div class="item-desc">E2E readiness, plan index, Tier 2 runbook CI coverage notes, this status HTML refresh.</div>
         </div>
       </div>
       <div class="item">
         <div class="box open-box"></div>
         <div>
-          <div class="item-title">First nightly seed audit run</div>
-          <div class="item-desc">After merge, workflow runs daily at 06:00 UTC (or trigger manually via workflow_dispatch). Needs live network to public ATS endpoints. May flake on rate limits — watch artifact <code>nightly_seed_audit.json</code>.</div>
+          <div class="item-title">W10a — CI preflight + env template test</div>
+          <div class="item-desc"><code>test_hosted_env_template.py</code>; new <code>hosted-preflight</code> job runs <code>railway-preflight.sh</code> + health probe.</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">W10b — verify-ops-readiness env step</div>
+          <div class="item-desc">Wire env template pytest into <code>verify-ops-readiness.sh</code>.</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">W11a/b — Nightly audit CLI + workflow DRY</div>
+          <div class="item-desc"><code>seed_refresh_audit.py --evaluate-live</code>; nightly workflow calls CLI instead of inline Python.</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">W12 — UI performance gate</div>
+          <div class="item-desc">Seeded 500 jobs / 50 sources; dashboard/job detail/saved jobs/admin p95 ≤ 1s smoke test.</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">W13 — Final orchestration sync</div>
+          <div class="item-desc">Mark W9–W12 complete in orchestration plans; full pytest green.</div>
         </div>
       </div>
 
-      <h3><span class="pill block">Ops</span> Tier 2 production cutover</h3>
-      <p style="color:var(--muted);margin:0 0 0.75rem;font-size:0.9rem;">Code is ready; these steps need Railway + Supabase credentials. Full runbook: <code>docs/tier2-hosted-web.md</code></p>
+      <h3><span class="pill block">Ops</span> Tier 2 production cutover (maintainer credentials)</h3>
+      <p style="color:var(--muted);margin:0 0 0.75rem;font-size:0.9rem;">Code is ready; local dry-run passes via <code>verify-ops-readiness.sh</code>. Production steps need Railway + Supabase credentials. Full runbook: <code>docs/tier2-hosted-web.md</code></p>
 
       <div class="item">
         <div class="box open-box"></div>
@@ -400,7 +564,7 @@ Apple notarization                      Still not started</div>
           <div class="item-desc">
             Export volume SQLite + resume files → set <code>DATABASE_URL</code> + <code>SUPABASE_SERVICE_ROLE_KEY</code> on web + worker → run <code>./scripts/railway-cutover.sh</code> → post-cutover smoke.
           </div>
-          <span class="cmd">./scripts/railway-cutover.sh --dry-run   # local validation first
+          <span class="cmd">./scripts/railway-cutover.sh --dry-run   # local validation (no secrets)
 ./scripts/railway-cutover.sh --smoke-only https://your-app.up.railway.app "$TOKEN"</span>
         </div>
       </div>
@@ -423,12 +587,12 @@ Apple notarization                      Still not started</div>
       <p style="color:var(--muted);margin:0 0 0.75rem;font-size:0.9rem;">Baseline code exists; these need deployed monitoring — see <code>docs/cloud-production-server-goals.md</code></p>
       <table>
         <thead>
-          <tr><th>Area</th><th>Status after PR</th><th>Still needed</th></tr>
+          <tr><th>Area</th><th>Status on main</th><th>Still needed</th></tr>
         </thead>
         <tbody>
           <tr>
             <td>Health latency p95</td>
-            <td><code>cloud-health-probe.sh</code> exists</td>
+            <td><code>cloud-health-probe.sh</code> exists; optional in <code>verify-ops-readiness.sh</code> when <code>BASE_URL</code> set</td>
             <td>Run as cron/synthetic probe against production URL</td>
           </tr>
           <tr>
@@ -453,8 +617,8 @@ Apple notarization                      Still not started</div>
           </tr>
           <tr>
             <td>UI perf p95 ≤ 1s</td>
-            <td>—</td>
-            <td>Optional: add slow-marked perf smoke (500 jobs / 50 sources)</td>
+            <td>Planned W12 gate</td>
+            <td><code>test_ui_performance_gate.py</code> — in final completion wave</td>
           </tr>
           <tr>
             <td>Live E2E in PR CI</td>
@@ -505,6 +669,11 @@ Apple notarization                      Still not started</div>
             <td>Active cloud run card when a run is in progress</td>
           </tr>
           <tr>
+            <td>Ops readiness bundle</td>
+            <td><code>./scripts/verify-ops-readiness.sh</code></td>
+            <td>Full local Tier 2 pre-cutover check (same as CI product-gates)</td>
+          </tr>
+          <tr>
             <td>Seed refresh audit</td>
             <td><code>uv run python scripts/seed_refresh_audit.py --help</code></td>
             <td>Offline fixture refresh + JSON metrics</td>
@@ -523,7 +692,8 @@ Apple notarization                      Still not started</div>
       </table>
       <span class="cmd">uv sync
 ML_JOB_SWARM_DB_PATH=jobs.db uv run uvicorn 'ml_job_swarm.app:create_app_from_env' --factory --host 127.0.0.1 --port 8765
-# open http://127.0.0.1:8765/cloud/runs</span>
+# open http://127.0.0.1:8765/cloud/runs
+./scripts/verify-ops-readiness.sh</span>
     </section>
 
     <!-- ROADMAP VISUAL -->
@@ -531,11 +701,12 @@ ML_JOB_SWARM_DB_PATH=jobs.db uv run uvicorn 'ml_job_swarm.app:create_app_from_en
       <h2>Roadmap at a glance</h2>
       <div class="diagram">[DONE] V1 local product ────────────────────────────────────────────────┐
 [DONE] Cloud JSON API + worker ─────────────────────────────────────────┤
-[DONE] This PR: gates + cloud UI + SLO code + CI ───────────────────────┤  ← you are here
-[NEXT] Merge PR + green CI ─────────────────────────────────────────────┤
-[NEXT] Tier 2 production cutover (Railway/Supabase ops) ────────────────┤
-[NEXT] Deploy health probe + uptime monitoring ─────────────────────────┤
-[LATER] Tier 3 notarization + app stores ──────────────────────────────┘</div>
+[DONE] W1–W5: gates + cloud UI + SLO code + CI + docs (PR #1) ──────────┤
+[DONE] W6–W8: doc sync, merge, post-merge verify (PRs #2–#5) ───────────┤  ← you are here
+[IN FLIGHT] W9–W13: final completion (doc sync, preflight, UI perf) ────┤
+[BLOCKED] OPS-1–3: Tier 2 cutover + Supabase + notarization (secrets) ──┤
+[LATER] Deploy health probe + uptime monitoring in production ──────────┤
+[LATER] Tier 3 app stores ──────────────────────────────────────────────┘</div>
     </section>
 
     <p class="footer">

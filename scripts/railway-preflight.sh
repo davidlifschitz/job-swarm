@@ -109,6 +109,11 @@ if [[ "${PREFLIGHT_POSTGRES:-}" == "1" ]]; then
   ML_JOB_SWARM_EXPECT_POSTGRES=1 ./scripts/smoke-postgres-cutover.sh "${pg_base_url}" "${token}"
 fi
 
+if [[ "${PREFLIGHT_HEALTH_PROBE:-}" == "1" ]]; then
+  echo "==> Running cloud health probe (${base_url})"
+  BASE_URL="${base_url}" ./scripts/cloud-health-probe.sh
+fi
+
 echo
 echo "Preflight passed. Next steps for Railway go-live:"
 echo "  1. railway login"
