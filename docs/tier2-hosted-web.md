@@ -228,15 +228,19 @@ BASE_URL=http://127.0.0.1:18080 ./scripts/cloud-health-probe.sh
 # or: BASE_URL=http://127.0.0.1:8765 ./scripts/cloud-health-probe.sh
 ```
 
-### 9. SQLite → Postgres migration dry-run (local Postgres only)
+### 9. SQLite → Postgres migration dry-run (no DATABASE_URL)
 
-With a local Postgres instance (no Supabase secrets):
+Offline checksum validation only (no Postgres or Supabase secrets):
+
+```bash
+ML_JOB_SWARM_SOURCE_DB=/path/to/jobs.db ./scripts/railway-cutover.sh --dry-run
+```
+
+Live copy to Postgres (local or Supabase) additionally requires `DATABASE_URL`:
 
 ```bash
 export DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5432/jobs
-ML_JOB_SWARM_DB_PATH=/tmp/ml-job-swarm-migrate.db uv run pytest tests/test_hosted_migration.py -q
-export ML_JOB_SWARM_SOURCE_DB=/tmp/ml-job-swarm-migrate.db
-./scripts/railway-cutover.sh --dry-run
+ML_JOB_SWARM_SOURCE_DB=/path/to/jobs.db ./scripts/railway-cutover.sh
 ```
 
 ### Ops-only (requires production secrets — not dry-run)

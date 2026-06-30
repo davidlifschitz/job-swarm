@@ -51,9 +51,10 @@ if [[ "${SMOKE_ONLY}" -eq 1 ]]; then
   exit 0
 fi
 
-if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "DATABASE_URL is required for migration." >&2
+if [[ "${DRY_RUN}" -eq 0 && -z "${DATABASE_URL:-}" ]]; then
+  echo "DATABASE_URL is required for live migration." >&2
   echo "Set it from Supabase Settings → Database → Connection string (session pooler)." >&2
+  echo "For offline validation only, pass --dry-run (no DATABASE_URL needed)." >&2
   exit 1
 fi
 
