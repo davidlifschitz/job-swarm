@@ -156,8 +156,11 @@ uv run pytest tests/test_postgres_schema.py -q
 
 Run these before Railway/Supabase cutover. They use Docker sidecars, fixture adapters, and test JWTs — no live `DATABASE_URL`, service-role keys, or Railway tokens required.
 
-### 1. Full test suite
+**Quick path:** `./scripts/verify-ops-readiness.sh` runs steps 5–7 and 9 below (plus optional health probe when `BASE_URL` is set).
 
+Individual steps:
+
+### 1. Full test suite
 ```bash
 uv sync
 uv run pytest -q
