@@ -156,20 +156,20 @@ uv run pytest tests/test_postgres_schema.py -q
 
 Run these before Railway/Supabase cutover. They use Docker sidecars, fixture adapters, and test JWTs — no live `DATABASE_URL`, service-role keys, or Railway tokens required.
 
-**Quick path:** `./scripts/verify-ops-readiness.sh` runs steps 5–7 and 9 below (plus optional health probe when `BASE_URL` is set).
+**Quick path:** `./scripts/verify-ops-readiness.sh` runs steps 4–7 and 9 below (plus optional health probe when `BASE_URL` is set).
 
-**CI coverage on `main` (as of Phase B):**
+**CI coverage on `main`:**
 
 | Step | Automated in CI? | Job / workflow |
 |------|------------------|----------------|
 | 1 | Yes | `python-tests` (`.github/workflows/ci.yml`) |
-| 2 | No — local-only | Partial overlap: `docker-build` smoke only (W10 will add full preflight) |
-| 3 | No — local-only | Partial overlap: `postgres-tests` pytest subset (W10 will add full preflight) |
-| 4 | No — local-only | — |
+| 2 | Yes | `hosted-preflight` → `railway-preflight.sh` + health probe |
+| 3 | No — local-only | Partial overlap: `postgres-tests` pytest subset |
+| 4 | Yes | `product-gates` → `verify-ops-readiness.sh` (`test_hosted_env_template.py`) |
 | 5 | Yes | `product-gates` → `verify-ops-readiness.sh` |
 | 6 | Yes | `product-gates` → `verify-ops-readiness.sh` |
 | 7 | Yes | `product-gates` + `cloud-parity` (`.github/workflows/cloud-parity.yml`) |
-| 8 | No — local-only | Skipped in CI unless `BASE_URL` set (W10 will add) |
+| 8 | Yes | `hosted-preflight` → `PREFLIGHT_HEALTH_PROBE=1 railway-preflight.sh` |
 | 9 | Yes | `product-gates` → `verify-ops-readiness.sh` |
 
 Individual steps:
@@ -187,7 +187,7 @@ Expect 531 passed, 12 skipped.
 
 ### 2. Hosted container preflight (Phase A SQLite)
 
-**Local-only** (not fully CI-covered yet; W10 will wire `railway-preflight.sh` into CI). Partial overlap: `docker-build` builds the image and runs `smoke-hosted.sh`, but does not run the full preflight script.
+**CI:** `hosted-preflight` runs `PREFLIGHT_HEALTH_PROBE=1 ./scripts/railway-preflight.sh` (includes step 8 health probe).
 
 ```bash
 ./scripts/railway-preflight.sh
@@ -207,7 +207,7 @@ Adds a local `postgres:16-alpine` sidecar and verifies `database_backend: postgr
 
 ### 4. Env template sanity
 
-**Local-only** — no CI job validates `.env.hosted.example` keys against this doc.
+**CI:** `product-gates` via `tests/test_hosted_env_template.py` inside `verify-ops-readiness.sh`.
 
 ```bash
 grep -E '^[A-Z_]+=' .env.hosted.example | cut -d= -f1 | sort
@@ -255,7 +255,7 @@ chmod +x scripts/run-cloud-parity-check.sh
 
 ### 8. Cloud health probe (against preflight container)
 
-**Local-only** (not CI-covered yet; W10 will add). `verify-ops-readiness.sh` runs this only when `BASE_URL` is set — CI does not set it.
+**CI:** `hosted-preflight` via `PREFLIGHT_HEALTH_PROBE=1` inside `railway-preflight.sh`. Locally, `verify-ops-readiness.sh` runs this only when `BASE_URL` is set.
 
 After step 2 leaves a healthy container (or start the app locally on port 8765):
 

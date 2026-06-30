@@ -26,25 +26,25 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 9 — Doc sync (parallel, disjoint files)
 
-- [ ] **W9-T1 E2E readiness doc drift**
+- [x] **W9-T1 E2E readiness doc drift**
   - **Owns:** `docs/superpowers/e2e-product-readiness.md`
   - **Do NOT touch:** code, other docs
   - **Subagent:** generalPurpose
   - **Acceptance:** No stale "on branch" / "after merge" pending text; nightly audit evidence reflects merged workflow on main; test count ~531
 
-- [ ] **W9-T2 Plan index doc drift**
+- [x] **W9-T2 Plan index doc drift**
   - **Owns:** `docs/superpowers/plans/README.md`
   - **Do NOT touch:** code, other docs
   - **Subagent:** generalPurpose
   - **Acceptance:** Nightly seed audit marked on main; PR #5 CI wiring noted
 
-- [ ] **W9-T3 Tier 2 runbook CI coverage notes**
+- [x] **W9-T3 Tier 2 runbook CI coverage notes**
   - **Owns:** `docs/tier2-hosted-web.md` (dry-run checklist section only)
   - **Do NOT touch:** code, workflows
   - **Subagent:** generalPurpose
   - **Acceptance:** Steps 2–4 and 8 document which are CI-covered vs local-only (honest pre-W10)
 
-- [ ] **W9-T4 Status HTML refresh**
+- [x] **W9-T4 Status HTML refresh**
   - **Owns:** `tmp/job-swarm-completion-status.html`
   - **Do NOT touch:** application code
   - **Subagent:** generalPurpose
@@ -54,13 +54,13 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 10a — CI preflight + env template test (parallel)
 
-- [ ] **W10a-T1 Hosted env template gate test**
+- [x] **W10a-T1 Hosted env template gate test**
   - **Owns:** `tests/test_hosted_env_template.py` (new)
   - **Do NOT touch:** `.env.hosted.example`, docs, workflows
   - **Subagent:** generalPurpose
   - **Acceptance:** `uv run pytest tests/test_hosted_env_template.py -q` green; keys match `docs/tier2-hosted-web.md` deploy tables
 
-- [ ] **W10a-T2 CI hosted-preflight job**
+- [x] **W10a-T2 CI hosted-preflight job**
   - **Owns:** `.github/workflows/ci.yml` (add `hosted-preflight` job only)
   - **Do NOT touch:** application code, scripts, other jobs' steps
   - **Subagent:** generalPurpose
@@ -70,7 +70,7 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 10b — verify-ops-readiness env step
 
-- [ ] **W10b-T1 Wire env template into verify-ops-readiness**
+- [x] **W10b-T1 Wire env template into verify-ops-readiness**
   - **Owns:** `scripts/verify-ops-readiness.sh`, `tests/test_verify_ops_readiness_script.py`
   - **Do NOT touch:** `ci.yml`, `test_hosted_env_template.py`
   - **Subagent:** generalPurpose
