@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from ml_job_swarm.db.factory import connect_from_env
 from ml_job_swarm.hosted_migration import (
     MIGRATION_TABLE_ORDER,
     HostedMigrationError,
@@ -70,6 +71,35 @@ def _seed_sqlite(path: Path, *, resume_dir: Path) -> None:
     conn.close()
 
 
+def _seed_sqlite_catalog_only(path: Path) -> None:
+    conn = connect(path)
+    init_db(conn)
+    company_id = conn.execute(
+        """
+        INSERT INTO companies (name, normalized_name, stage)
+        VALUES ('Migration Co', 'migration co', 'growth')
+        """
+    ).lastrowid
+    conn.execute(
+        """
+        INSERT INTO jobs (
+          company_id, external_id, title, source_url, content_hash, status
+        )
+        VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            company_id,
+            "migration-role",
+            "Migration Engineer",
+            "https://example.com/jobs/migration",
+            "migration-hash",
+            "open",
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
 def test_migration_table_order_covers_foundation_schema():
     assert "companies" in MIGRATION_TABLE_ORDER
     assert MIGRATION_TABLE_ORDER.index("llm_requests") < MIGRATION_TABLE_ORDER.index(
@@ -128,17 +158,23 @@ def test_migrate_sqlite_to_postgres_copies_rows_and_validates_checksums(
     monkeypatch.setenv("DATABASE_URL", POSTGRES_URL)
     source_db = tmp_path / "source.db"
     resume_dir = tmp_path / "resume-assets"
-    _seed_sqlite(source_db, resume_dir=resume_dir)
+    _seed_sqlite_catalog_only(source_db)
 
     report = migrate_sqlite_to_postgres(
         source_db=source_db,
-        dry_run=True,
+        dry_run=False,
         resume_asset_dir=resume_dir,
     )
-    assert report.checksums["resume_checksum_matches"] is True
+    assert report.status == "ok"
+    assert report.checksums["row_count_matches"] is True
+    assert report.checksums["table_counts"]["jobs"] == 1
 
     sqlite_conn = connect(source_db)
-    checksums = validate_migration_checksums(sqlite_conn)
-    sqlite_conn.close()
-    assert checksums["table_counts"]["jobs"] == 1
-    assert checksums["resume_sha256_count"] == 1
+    postgres_db = connect_from_env()
+    try:
+        checksums = validate_migration_checksums(sqlite_conn, postgres_db)
+        assert checksums["row_count_matches"] is True
+        assert checksums["destination_counts"]["jobs"] == 1
+    finally:
+        sqlite_conn.close()
+        postgres_db.close()
