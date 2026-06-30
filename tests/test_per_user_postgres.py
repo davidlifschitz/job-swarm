@@ -45,6 +45,7 @@ def postgres_conn(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", POSTGRES_URL)
     db = connect_from_env()
     assert isinstance(db, PostgresDatabase)
+    init_db(db)
     for table in (
         "preference_answers",
         "target_profiles",
@@ -60,7 +61,6 @@ def postgres_conn(monkeypatch):
     db.execute("DELETE FROM jobs")
     db.execute("DELETE FROM companies")
     db.commit()
-    init_db(db)
     yield db
     db.close()
 

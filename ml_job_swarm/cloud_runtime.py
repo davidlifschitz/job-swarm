@@ -1,17 +1,20 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from ml_job_swarm.cloud_logging import build_transition_log
 from ml_job_swarm.db.protocol import Database
 
 StoreConnection = sqlite3.Connection | Database
 
 CLOUD_RUN_QUEUE_ORDER = "created_at ASC, id ASC"
+_CLOUD_LOGGER = logging.getLogger("ml_job_swarm.cloud")
 
 from ml_job_swarm.source_policy import SourcePolicyResult, classify_source_url
 
@@ -627,6 +630,14 @@ def _set_run_state(
             run_id,
         ),
     )
+    _emit_transition_log(
+        conn,
+        run_id=run_id,
+        stage=stage,
+        trace_id=str(current["trace_id"]),
+        event_type="state_transition",
+        status=status,
+    )
 
 
 def _append_event(
@@ -641,6 +652,7 @@ def _append_event(
     trace_id: str,
     created_at: str | None = None,
 ) -> None:
+    event_at = created_at or _now()
     conn.execute(
         """
         INSERT INTO cloud_run_events (
@@ -663,9 +675,70 @@ def _append_event(
             message,
             _dump_json(_redact_sensitive(payload or {})),
             trace_id,
-            created_at or _now(),
+            event_at,
         ),
     )
+    _emit_transition_log(
+        conn,
+        run_id=run_id,
+        stage=stage,
+        trace_id=trace_id,
+        event_type=event_type,
+        status=status,
+        at=event_at,
+    )
+
+
+def _emit_transition_log(
+    conn: StoreConnection,
+    *,
+    run_id: str,
+    stage: str,
+    trace_id: str,
+    event_type: str,
+    status: str,
+    at: str | None = None,
+) -> None:
+    transition_at = at or _now()
+    log_entry = build_transition_log(
+        run_id=run_id,
+        stage=stage,
+        trace_id=trace_id,
+        duration_ms=_transition_duration_ms(conn, run_id, at=transition_at),
+        event_type=event_type,
+        status=status,
+    )
+    _CLOUD_LOGGER.info("%s", _dump_json(log_entry))
+
+
+def _transition_duration_ms(
+    conn: StoreConnection, run_id: str, *, at: str
+) -> int:
+    row = conn.execute(
+        """
+        SELECT created_at
+        FROM cloud_run_events
+        WHERE run_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (run_id,),
+    ).fetchone()
+    if row is not None:
+        previous_at = _serialize_db_value(row["created_at"])
+        if isinstance(previous_at, str):
+            return _elapsed_ms(previous_at, at)
+    run = get_run(conn, run_id)
+    created_at = run["created_at"]
+    if isinstance(created_at, str):
+        return _elapsed_ms(created_at, at)
+    return 0
+
+
+def _elapsed_ms(start: str, end: str) -> int:
+    start_dt = datetime.fromisoformat(start.replace("Z", "+00:00"))
+    end_dt = datetime.fromisoformat(end.replace("Z", "+00:00"))
+    return max(0, int((end_dt - start_dt).total_seconds() * 1000))
 
 
 def _run_from_row(row: Mapping[str, Any]) -> dict[str, object]:

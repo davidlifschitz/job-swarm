@@ -1,0 +1,62 @@
+{
+  "version": "1",
+  "source_policy_version": "source-policy-v1",
+  "cases": [
+    {
+      "id": "source-policy:greenhouse-openai",
+      "url": "https://boards.greenhouse.io/openai"
+    },
+    {
+      "id": "source-policy:lever-anthropic",
+      "url": "https://jobs.lever.co/anthropic"
+    },
+    {
+      "id": "source-policy:linkedin-jobs",
+      "url": "https://www.linkedin.com/jobs/view/123"
+    },
+    {
+      "id": "source-policy:indeed-viewjob",
+      "url": "https://www.indeed.com/viewjob?jk=123"
+    },
+    {
+      "id": "source-policy:login-careers",
+      "url": "https://example.com/login?next=/careers"
+    },
+    {
+      "id": "source-policy:google-search-proxy",
+      "url": "https://www.google.com/search?q=site:linkedin.com/jobs+ml"
+    },
+    {
+      "id": "source-policy:hn-item",
+      "url": "https://news.ycombinator.com/item?id=123"
+    },
+    {
+      "id": "source-policy:google-careers",
+      "url": "https://www.google.com/about/careers/applications/jobs/results/"
+    },
+    {
+      "id": "source-policy:ashby-perplexity",
+      "url": "https://jobs.ashbyhq.com/perplexity"
+    },
+    {
+      "id": "source-policy:restricted-proxy",
+      "url": "https://example.com/careers?target=https://www.linkedin.com/jobs/view/123"
+    },
+    {
+      "id": "source-policy:bing-search",
+      "url": "https://www.bing.com/search?q=indeed+machine+learning"
+    },
+    {
+      "id": "source-policy:auth-greenhouse",
+      "url": "https://boards.greenhouse.io/login"
+    },
+    {
+      "id": "source-policy:stripe-jobs",
+      "url": "https://stripe.com/jobs/search"
+    },
+    {
+      "id": "source-policy:workable-square",
+      "url": "https://jobs.smartrecruiters.com/Square"
+    }
+  ]
+}

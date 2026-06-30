@@ -1,0 +1,195 @@
+{
+  "version": "1",
+  "source_policy_version": "source-policy-v1",
+  "p0_match_rate": 0.99,
+  "decisions": [
+    {
+      "id": "source-policy:greenhouse-openai",
+      "decision": "allowed"
+    },
+    {
+      "id": "source-policy:lever-anthropic",
+      "decision": "allowed"
+    },
+    {
+      "id": "source-policy:linkedin-jobs",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:indeed-viewjob",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:login-careers",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:google-search-proxy",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:hn-item",
+      "decision": "manual_link"
+    },
+    {
+      "id": "source-policy:google-careers",
+      "decision": "allowed"
+    },
+    {
+      "id": "source-policy:ashby-perplexity",
+      "decision": "allowed"
+    },
+    {
+      "id": "source-policy:restricted-proxy",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:bing-search",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:auth-greenhouse",
+      "decision": "blocked"
+    },
+    {
+      "id": "source-policy:stripe-jobs",
+      "decision": "allowed"
+    },
+    {
+      "id": "source-policy:workable-square",
+      "decision": "allowed"
+    },
+    {
+      "id": "fit-bucket:golden-ml-001",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-002",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-003",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-004",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-005",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-006",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-007",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-008",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-009",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-010",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-011",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-012",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-013",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-014",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-015",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-016",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-017",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-018",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-019",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-020",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-021",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-022",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-023",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-024",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-ml-025",
+      "decision": "strong"
+    },
+    {
+      "id": "fit-bucket:golden-decoy-staff-001",
+      "decision": "moderate"
+    },
+    {
+      "id": "fit-bucket:golden-decoy-staff-002",
+      "decision": "moderate"
+    },
+    {
+      "id": "fit-bucket:golden-decoy-mid-001",
+      "decision": "moderate"
+    },
+    {
+      "id": "fit-bucket:golden-decoy-mid-002",
+      "decision": "moderate"
+    },
+    {
+      "id": "fit-bucket:golden-reject-marketing-001",
+      "decision": "weak"
+    },
+    {
+      "id": "fit-bucket:golden-reject-location-001",
+      "decision": "weak"
+    },
+    {
+      "id": "fit-bucket:golden-reject-datasci-001",
+      "decision": "moderate"
+    },
+    {
+      "id": "fit-bucket:golden-reject-sales-001",
+      "decision": "weak"
+    }
+  ]
+}

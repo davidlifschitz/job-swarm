@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 from urllib.parse import urlencode
+from uuid import uuid4
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
@@ -34,6 +35,7 @@ from ml_job_swarm.auth_middleware import ACCESS_TOKEN_COOKIE, SupabaseAuthMiddle
 from ml_job_swarm.cloud_runtime import (
     ManualFinalSubmitBlocked,
     RunNotFound,
+    TERMINAL_STATUSES,
     build_runtime_readiness_report,
     cancel_run,
     create_manual_final_submit_instruction,
@@ -586,6 +588,7 @@ def create_app(
         catalog_refreshed_at = _latest_succeeded_run_finished_at(conn)
         user_id = _authenticated_user_id(request)
         connection_count = linkedin_connection_count(conn, user_id=user_id)
+        active_cloud_run = _active_cloud_run_for_user(conn, user_id)
         if target_profile_id is None:
             return _render(
                 request,
@@ -604,6 +607,7 @@ def create_app(
                 fit_review_available=False,
                 rules_preview_jobs=[],
                 unreviewed_jobs=[],
+                active_cloud_run=active_cloud_run,
             )
         _require_profile_access(request, target_profile_id)
         try:
@@ -647,6 +651,7 @@ def create_app(
                 fit_review_available=False,
                 rules_preview_jobs=[],
                 unreviewed_jobs=[],
+                active_cloud_run=active_cloud_run,
             )
         unreviewed_jobs = _unreviewed_job_rows(conn, target_profile_id)
         return _render(
@@ -666,6 +671,7 @@ def create_app(
             fit_review_available=app.state.fit_gate_client is not None,
             rules_preview_jobs=preview_jobs,
             unreviewed_jobs=unreviewed_jobs,
+            active_cloud_run=active_cloud_run,
         )
 
     @app.get("/jobs/{job_id}", response_class=HTMLResponse)
@@ -1722,6 +1728,73 @@ def create_app(
         except ManualFinalSubmitBlocked as exc:
             raise HTTPException(status_code=409, detail=exc.instruction) from exc
 
+    # --- cloud operator UI ---
+    @app.get("/cloud/runs", response_class=HTMLResponse)
+    def cloud_runs_list(request: Request) -> HTMLResponse:
+        user_id = _authenticated_user_id(request)
+        runs = list_runs(conn, user_id=user_id)
+        return _render(
+            request,
+            "cloud_runs.html",
+            runs=runs,
+            active_cloud_run=_active_cloud_run_for_user(conn, user_id),
+        )
+
+    @app.get("/cloud/runs/{run_id}", response_class=HTMLResponse)
+    def cloud_run_detail(request: Request, run_id: str) -> HTMLResponse:
+        try:
+            run = _get_cloud_run(conn, run_id, request)
+        except RunNotFound:
+            return HTMLResponse("Cloud run not found", status_code=404)
+        return _render(
+            request,
+            "cloud_run_detail.html",
+            run=run,
+            events=list_run_events(conn, run_id),
+            output_manifest=_sanitize_details(run.get("output_manifest") or {}),
+            is_terminal=run["status"] in TERMINAL_STATUSES,
+        )
+
+    @app.post("/cloud/runs/{run_id}/cancel")
+    def cloud_run_cancel(
+        request: Request,
+        run_id: str,
+        reason: Annotated[str | None, Form()] = None,
+    ):
+        try:
+            _get_cloud_run(conn, run_id, request)
+            cancel_run(conn, run_id, reason=reason or "Canceled from cloud operator UI.")
+        except RunNotFound:
+            return HTMLResponse("Cloud run not found", status_code=404)
+        return RedirectResponse(f"/cloud/runs/{run_id}?cancel_status=ok", status_code=303)
+
+    @app.post("/cloud/runs/start")
+    def cloud_run_start(
+        request: Request,
+        target_profile_id: Annotated[int, Form()],
+        prepare_packets: Annotated[str | None, Form()] = None,
+        llm_consent: Annotated[str | None, Form()] = None,
+        user_id: Annotated[str | None, Form()] = None,
+    ):
+        _require_profile_access(request, target_profile_id)
+        resolved_user_id = _resolve_cloud_user_id(request, user_id or "local-operator")
+        input_manifest: dict[str, object] = {
+            "target_profile_id": target_profile_id,
+            "prepare_packets": prepare_packets == "on",
+            "review_jobs_with_llm": llm_consent == "on",
+        }
+        idempotency_key = f"ui-start-{resolved_user_id}-{target_profile_id}-{uuid4().hex}"
+        run = create_run(
+            conn,
+            user_id=resolved_user_id,
+            requested_action="continue_local_workflow",
+            input_manifest=input_manifest,
+            idempotency_key=idempotency_key,
+            environment_class="cloud",
+        )
+        return RedirectResponse(f"/cloud/runs/{run['id']}?start_status=queued", status_code=303)
+    # --- end cloud operator UI ---
+
     app.include_router(
         create_api_v1_router(
             conn=conn,
@@ -1811,6 +1884,16 @@ def _get_cloud_run(conn, run_id: str, request: Request) -> dict[str, object]:
     if auth_user_id:
         return get_run_for_user(conn, run_id, user_id=auth_user_id)
     return get_run(conn, run_id)
+
+
+def _active_cloud_run_for_user(
+    conn, user_id: str | None
+) -> dict[str, object] | None:
+    runs = list_runs(conn, user_id=user_id)
+    for run in reversed(runs):
+        if run["status"] not in TERMINAL_STATUSES:
+            return run
+    return None
 
 
 def _require_profile_access(request: Request, target_profile_id: int) -> None:

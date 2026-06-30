@@ -29,6 +29,7 @@
         <nav class="global-nav" aria-label="Primary">
           <a href="/onboarding"{% if _active.startswith('/onboarding') or _active == '/' %} aria-current="page"{% endif %}>Onboarding</a>
           <a href="{{ _dashboard_href }}"{% if _active.startswith('/dashboard') or _active.startswith('/jobs') %} aria-current="page"{% endif %}>Dashboard</a>
+          <a href="/cloud/runs"{% if _active.startswith('/cloud/runs') %} aria-current="page"{% endif %}>Cloud runs</a>
           <a href="/connections"{% if _active.startswith('/connections') %} aria-current="page"{% endif %}>Connections</a>
           <a href="/admin/sources"{% if _active.startswith('/admin') or _active.startswith('/sources') %} aria-current="page"{% endif %}>Admin</a>
         </nav>

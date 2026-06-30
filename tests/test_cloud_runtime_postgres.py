@@ -21,10 +21,10 @@ def postgres_conn(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", POSTGRES_URL)
     db = connect_from_env()
     assert isinstance(db, PostgresDatabase)
+    init_db(db)
     db.execute("DELETE FROM cloud_run_events")
     db.execute("DELETE FROM cloud_runs")
     db.commit()
-    init_db(db)
     yield db
     db.close()
 

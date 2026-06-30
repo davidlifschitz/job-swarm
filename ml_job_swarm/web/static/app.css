@@ -1478,3 +1478,107 @@ summary {
   justify-content: space-between;
   padding: 10px 0;
 }
+
+.cloud-run-panel,
+.cloud-run-start-panel,
+.cloud-run-summary-panel,
+.cloud-run-events-panel,
+.cloud-run-manifest-panel {
+  background: #fff;
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  margin-bottom: 18px;
+  padding: 18px;
+}
+
+.cloud-run-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.cloud-run-panel-grid,
+.cloud-run-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 0;
+}
+
+.cloud-run-panel-grid > div,
+.cloud-run-summary-grid > div {
+  background: #f8fafc;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.cloud-run-panel-grid dt,
+.cloud-run-summary-grid dt {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cloud-run-panel-grid dd,
+.cloud-run-summary-grid dd {
+  font-weight: 700;
+  margin: 6px 0 0;
+}
+
+.cloud-run-start-form,
+.cloud-run-cancel-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  max-width: 520px;
+}
+
+.cloud-runs-table-section,
+.cloud-run-events-panel {
+  overflow-x: auto;
+}
+
+.cloud-runs-table,
+.cloud-run-events-table {
+  min-width: 720px;
+  width: 100%;
+}
+
+.cloud-run-manifest {
+  background: #0f172a;
+  border-radius: 10px;
+  color: #e2e8f0;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  overflow-x: auto;
+  padding: 14px;
+}
+
+.cloud-status-badge.cloud-status-running,
+.cloud-status-badge.cloud-status-queued {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1d4ed8;
+}
+
+.cloud-status-badge.cloud-status-waiting_for_user,
+.cloud-status-badge.cloud-status-prepared {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}
+
+.cloud-status-badge.cloud-status-completed {
+  background: #ecfdf3;
+  border-color: #abefc6;
+  color: #067647;
+}
+
+.cloud-status-badge.cloud-status-failed,
+.cloud-status-badge.cloud-status-canceled {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}

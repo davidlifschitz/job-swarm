@@ -3,6 +3,7 @@
 .ml-job-swarm/
 .env
 .env.*
+!.env.hosted.example
 .auth/
 .venv/
 __pycache__/
