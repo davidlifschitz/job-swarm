@@ -32,7 +32,9 @@ the current V1 surface as done.
 | Structured cloud logging | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `ml_job_swarm/cloud_logging.py` emits schema-valid log dicts on cloud run state transitions; `uv run pytest tests/test_cloud_logging_schema.py -q` green. | 2026-06-29 |
 | Runtime parity fixtures | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `tests/fixtures/cloud_parity/` baseline; `scripts/run-cloud-parity-check.sh` and `.github/workflows/cloud-parity.yml` run `tests/test_cloud_runtime_parity_fixtures.py` on PR/push. | 2026-06-29 |
 | Cloud load capacity fixture | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `scripts/run-cloud-load-test.py` drains 10 concurrent queued runs without duplicate packets; `uv run pytest tests/test_cloud_load_capacity.py -q` green; included in `verify-ops-readiness.sh`. | 2026-06-29 |
-| Cloud health probe script | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `scripts/cloud-health-probe.sh` measures `/healthz` p95 against SLO targets; `uv run pytest tests/test_cloud_health_probe_script.py -q` green; optional in `verify-ops-readiness.sh` when `BASE_URL` is set. | 2026-06-29 |
+| Cloud health probe script | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `scripts/cloud-health-probe.sh` measures `/healthz` p95 against SLO targets; `hosted-preflight` CI job runs via `PREFLIGHT_HEALTH_PROBE=1`; optional in `verify-ops-readiness.sh` when `BASE_URL` is set. | 2026-06-30 |
+| UI responsiveness gate | Done | `specs/2026-05-14-final-product-quantitative-goals-design.md` | `tests/test_ui_performance_gate.py` asserts dashboard, job detail, saved jobs, and admin sources render p95 ≤ 1s with 500 jobs / 50 sources seeded fixture. | 2026-06-30 |
+| Hosted env template gate | Done | `plans/2026-06-30-job-swarm-final-completion.md` | `tests/test_hosted_env_template.py` validates `.env.hosted.example` keys against `docs/tier2-hosted-web.md`; included in `verify-ops-readiness.sh` and CI `product-gates`. | 2026-06-30 |
 
 ## V1 Done Definition
 
@@ -80,3 +82,4 @@ LinkedIn/Indeed scraping, CAPTCHA bypass, or automatic final submission.
 - 2026-06-29: `./scripts/run-cloud-parity-check.sh` -> runtime parity fixture baseline green.
 - 2026-06-30: main `08ae122` (PR #5 merged) — `uv run pytest -q` -> 531 passed, 12 skipped.
 - 2026-06-30: CI `product-gates` job runs `./scripts/verify-ops-readiness.sh` (gate tests, parity, load, offline seed audit, cutover dry-run).
+- 2026-06-30: Final completion W9–W12 — `uv run pytest -q` -> 536 passed, 12 skipped; `hosted-preflight` CI, env template gate, nightly audit CLI, UI perf gate.

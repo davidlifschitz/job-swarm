@@ -200,4 +200,4 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
 
 ## Completion status
 
-All code waves **W1–W8 complete**. Remaining work is **ops-only** (Railway/Supabase/Apple secrets).
+All code waves **W1–W8 complete**. Final completion waves **W9–W12 complete** (see `2026-06-30-job-swarm-final-completion.md`). Remaining work is **ops-only** (Railway/Supabase/Apple secrets).

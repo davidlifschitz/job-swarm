@@ -80,7 +80,7 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 11a — Nightly audit CLI extraction
 
-- [ ] **W11a-T1 seed_refresh_audit live evaluate CLI**
+- [x] **W11a-T1 seed_refresh_audit live evaluate CLI**
   - **Owns:** `scripts/seed_refresh_audit.py`, `tests/test_seed_refresh_audit.py`
   - **Do NOT touch:** workflows, other scripts
   - **Subagent:** generalPurpose
@@ -90,7 +90,7 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 11b — Nightly workflow DRY
 
-- [ ] **W11b-T1 nightly-seed-audit.yml uses CLI**
+- [x] **W11b-T1 nightly-seed-audit.yml uses CLI**
   - **Owns:** `.github/workflows/nightly-seed-audit.yml`
   - **Do NOT touch:** application code, seed_refresh_audit.py
   - **Subagent:** generalPurpose
@@ -100,7 +100,7 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 12 — UI performance gate
 
-- [ ] **W12-T1 UI render p95 smoke test**
+- [x] **W12-T1 UI render p95 smoke test**
   - **Owns:** `tests/test_ui_performance_gate.py` (new), `tests/support/ui_perf_seed.py` (new if needed)
   - **Do NOT touch:** `app.py`, templates, production routes
   - **Subagent:** generalPurpose
@@ -110,7 +110,7 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Wave 13 — Final orchestration sync
 
-- [ ] **W13-T1 Mark all waves complete in orchestration plans**
+- [x] **W13-T1 Mark all waves complete in orchestration plans**
   - **Owns:** `docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md`, `docs/superpowers/plans/2026-06-30-job-swarm-final-completion.md`
   - **Do NOT touch:** application code
   - **Subagent:** orchestrator (integration)
@@ -130,4 +130,18 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ## Completion status
 
-W1–W8: **complete**. W9–W13: **in progress**.
+W1–W8: **complete** on `main`. W9–W12: **complete**. W13: **complete**.
+
+All agent-executable code, CI, and doc work is **done**. OPS-1–3 remain **maintainer-executed** with production credentials (runbook in `docs/tier2-hosted-web.md`; local dry-run via `./scripts/verify-ops-readiness.sh`).
+
+### Local verification (2026-06-30, final completion)
+
+| Check | Result |
+| --- | --- |
+| `uv run pytest -q` | 536 passed, 12 skipped |
+| `./scripts/verify-ops-readiness.sh` | pass (includes env template gate) |
+| CI jobs | `python-tests`, `product-gates`, `hosted-preflight`, `postgres-tests`, `cloud-parity`, `docker-build`, `macos-build` |
+| PRs #1–#5 merged on main | `08ae122` + final completion PR pending |
+| Nightly live seed audit | workflow uses `seed_refresh_audit.py --evaluate-live` |
+
+**OPS runbook verified locally.** OPS-1–3 production execution blocked on maintainer credentials only.

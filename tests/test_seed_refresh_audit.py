@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ml_job_swarm import cli
 from ml_job_swarm.ingest import AdapterRegistry, RawJob, RefreshError
-from ml_job_swarm.store import connect
+from ml_job_swarm.store import connect, init_db
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = REPO_ROOT / "tests" / "fixtures"
@@ -196,3 +196,109 @@ def test_fixture_refresh_audit_script_runs_via_subprocess(tmp_path):
     assert payload["audit_passed"] is True
     assert payload["refresh_summary"]["sources_attempted"] == 2
     assert payload["refresh_summary"]["sources_succeeded"] == 2
+
+
+def _seed_live_evaluate_db(db_path: Path) -> tuple[int, dict[str, object]]:
+    conn = connect(db_path)
+    init_db(conn)
+    conn.execute(
+        "INSERT INTO ingestion_runs (status, source_count) VALUES ('succeeded', 0)"
+    )
+    previous_run_id = int(
+        conn.execute("SELECT COALESCE(MAX(id), 0) FROM ingestion_runs").fetchone()[0]
+    )
+    conn.execute(
+        "INSERT INTO ingestion_runs (status, source_count) VALUES ('failed', 10)"
+    )
+    new_run_id = int(
+        conn.execute("SELECT COALESCE(MAX(id), 0) FROM ingestion_runs").fetchone()[0]
+    )
+    conn.execute(
+        """
+        INSERT INTO source_friction_events (
+          ingestion_run_id,
+          event_type,
+          url,
+          status_code,
+          details_json
+        )
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            new_run_id,
+            "blocked_response",
+            "https://boards.greenhouse.io/example",
+            403,
+            json.dumps({"reason": "blocked by source"}),
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    refresh_summary = {
+        "sources_attempted": 10,
+        "sources_succeeded": 9,
+        "jobs_seen": 50,
+        "failures": 0,
+    }
+    return previous_run_id, refresh_summary
+
+
+def test_evaluate_live_refresh_audit_loads_friction_events(tmp_path):
+    db_path = tmp_path / "audit.db"
+    previous_run_id, refresh_summary = _seed_live_evaluate_db(db_path)
+    refresh_summary_path = tmp_path / "refresh_summary.json"
+    refresh_summary_path.write_text(json.dumps(refresh_summary), encoding="utf-8")
+    output_path = tmp_path / "nightly_seed_audit.json"
+
+    payload, exit_code = audit.evaluate_live_refresh_audit(
+        db_path=db_path,
+        refresh_summary_path=refresh_summary_path,
+        previous_run_id=previous_run_id,
+        output_path=output_path,
+    )
+
+    assert exit_code == 0
+    assert payload["audit_passed"] is True
+    assert payload["audit_violations"] == []
+    assert len(payload["source_failures"]) == 1
+    assert payload["source_failures"][0]["event_type"] == "blocked_response"
+    assert payload["source_failures"][0]["reason"] == "blocked by source"
+    assert payload["source_failures"][0]["status_code"] == 403
+    assert (
+        payload["product_metrics"]["source_refresh"]["sources_have_visible_failure_reasons"]
+        is True
+    )
+    assert output_path.is_file()
+    written = json.loads(output_path.read_text(encoding="utf-8"))
+    assert written["audit_passed"] is True
+    assert written["source_failures"] == payload["source_failures"]
+
+
+def test_evaluate_live_refresh_audit_cli_mode(tmp_path, capsys):
+    db_path = tmp_path / "audit.db"
+    previous_run_id, refresh_summary = _seed_live_evaluate_db(db_path)
+    refresh_summary_path = tmp_path / "refresh_summary.json"
+    refresh_summary_path.write_text(json.dumps(refresh_summary), encoding="utf-8")
+    output_path = tmp_path / "nightly_seed_audit.json"
+
+    exit_code = audit.main(
+        [
+            "--evaluate-live",
+            "--db",
+            str(db_path),
+            "--refresh-summary",
+            str(refresh_summary_path),
+            "--previous-run-id",
+            str(previous_run_id),
+            "--output",
+            str(output_path),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    payload = json.loads(captured.out)
+    assert exit_code == 0
+    assert payload["audit_passed"] is True
+    assert len(payload["source_failures"]) == 1
+    assert output_path.is_file()
