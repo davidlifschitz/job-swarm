@@ -35,6 +35,7 @@ the current V1 surface as done.
 | Cloud health probe script | Done | `plans/2026-06-29-job-swarm-completion-orchestration.md` | `scripts/cloud-health-probe.sh` measures `/healthz` p95 against SLO targets; `hosted-preflight` CI job runs via `PREFLIGHT_HEALTH_PROBE=1`; optional in `verify-ops-readiness.sh` when `BASE_URL` is set. | 2026-06-30 |
 | UI responsiveness gate | Done | `specs/2026-05-14-final-product-quantitative-goals-design.md` | `tests/test_ui_performance_gate.py` asserts dashboard, job detail, saved jobs, and admin sources render p95 ≤ 1s with 500 jobs / 50 sources seeded fixture. | 2026-06-30 |
 | Hosted env template gate | Done | `plans/2026-06-30-job-swarm-final-completion.md` | `tests/test_hosted_env_template.py` validates `.env.hosted.example` keys against `docs/tier2-hosted-web.md`; included in `verify-ops-readiness.sh` and CI `product-gates`. | 2026-06-30 |
+| Production ops packaging | Done | `plans/2026-06-30-ops-production-packaging.md` | `run-production-ops.sh`, `.env.ops.example`, `docs/maintainer-production-ops.md`; OPS-1/2/3 code-prepared with `--check-env` preflight. | 2026-06-30 |
 
 ## V1 Done Definition
 

@@ -4,6 +4,7 @@
 .env
 .env.*
 !.env.hosted.example
+!.env.ops.example
 .auth/
 .venv/
 __pycache__/

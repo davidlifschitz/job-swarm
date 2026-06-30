@@ -7,7 +7,8 @@
 #
 # Usage:
 #   ./scripts/sync-supabase-secrets.sh
-#   ./scripts/sync-supabase-secrets.sh --railway   # also push publishable key to Railway
+#   ./scripts/sync-supabase-secrets.sh --check-env   # verify CLI login + Phase B env
+#   ./scripts/sync-supabase-secrets.sh --railway     # also push keys to Railway
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,12 +17,68 @@ cd "${ROOT_DIR}"
 PROJECT_REF="${SUPABASE_PROJECT_REF:-qyxrbcbmatbaywyjrtug}"
 OUT_FILE="${SUPABASE_SECRETS_FILE:-${ROOT_DIR}/.env.supabase.local}"
 SYNC_RAILWAY=0
+CHECK_ENV=0
+
+require_supabase_cli() {
+  if ! command -v supabase >/dev/null 2>&1; then
+    echo "Supabase CLI not found. Install: brew install supabase/tap/supabase" >&2
+    exit 1
+  fi
+}
+
+require_supabase_login() {
+  if ! supabase projects list >/dev/null 2>&1; then
+    echo "Not logged in. Run: supabase login" >&2
+    echo "Or: supabase login --token \"\$SUPABASE_ACCESS_TOKEN\"" >&2
+    echo "Create a token at https://supabase.com/dashboard/account/tokens" >&2
+    exit 1
+  fi
+}
+
+report_phase_b_env() {
+  echo "==> Phase B Railway sync (optional — full Postgres + Storage cutover)"
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    echo "  DATABASE_URL: set"
+  else
+    echo "  DATABASE_URL: unset (Supabase Dashboard → Database → session pooler URI)"
+  fi
+  if [[ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
+    echo "  SUPABASE_SERVICE_ROLE_KEY: set"
+  else
+    echo "  SUPABASE_SERVICE_ROLE_KEY: unset (Supabase Dashboard → API → secret key)"
+  fi
+  echo "  With --railway, publishable keys are always pushed; Phase B vars above sync when set in env."
+}
+
+run_check_env() {
+  require_supabase_cli
+  echo "==> Supabase CLI: $(supabase --version 2>/dev/null | head -1 || echo ok)"
+  require_supabase_login
+  echo "==> Supabase login: ok"
+  report_phase_b_env
+  if command -v railway >/dev/null 2>&1; then
+    echo "==> Railway CLI: found"
+  else
+    echo "==> Railway CLI: not found (install for --railway push, or set vars in Railway dashboard)"
+  fi
+}
+
+print_railway_manual_instructions() {
+  local -a names=("$@")
+  echo "Railway CLI not found. Set these in Railway project → Variables:" >&2
+  for name in "${names[@]}"; do
+    echo "  ${name}" >&2
+  done
+  echo "Install CLI: https://docs.railway.com/guides/cli" >&2
+  echo "Then re-run: ./scripts/sync-supabase-secrets.sh --railway" >&2
+}
 
 for arg in "$@"; do
   case "${arg}" in
+    --check-env) CHECK_ENV=1 ;;
     --railway) SYNC_RAILWAY=1 ;;
     -h|--help)
-      sed -n '2,12p' "$0"
+      sed -n '2,11p' "$0"
       exit 0
       ;;
     *)
@@ -31,17 +88,13 @@ for arg in "$@"; do
   esac
 done
 
-if ! command -v supabase >/dev/null 2>&1; then
-  echo "Supabase CLI not found. Install: brew install supabase/tap/supabase" >&2
-  exit 1
+if [[ "${CHECK_ENV}" -eq 1 ]]; then
+  run_check_env
+  exit 0
 fi
 
-if ! supabase projects list >/dev/null 2>&1; then
-  echo "Not logged in. Run: supabase login" >&2
-  echo "Or: supabase login --token \"\$SUPABASE_ACCESS_TOKEN\"" >&2
-  echo "Create a token at https://supabase.com/dashboard/account/tokens" >&2
-  exit 1
-fi
+require_supabase_cli
+require_supabase_login
 
 echo "==> Fetching API keys for project ${PROJECT_REF}"
 keys_json="$(supabase projects api-keys --project-ref "${PROJECT_REF}" -o json)"
@@ -115,15 +168,27 @@ echo "==> Wrote ${OUT_FILE}"
 chmod 600 "${OUT_FILE}" 2>/dev/null || true
 
 if [[ "${SYNC_RAILWAY}" -eq 1 ]]; then
+  railway_vars=(
+    "SUPABASE_URL=${SUPABASE_URL}"
+    "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}"
+  )
+  railway_names=(SUPABASE_URL SUPABASE_ANON_KEY)
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    railway_vars+=("DATABASE_URL=${DATABASE_URL}")
+    railway_names+=(DATABASE_URL)
+  fi
+  if [[ -n "${SUPABASE_SERVICE_ROLE_KEY:-}" ]]; then
+    railway_vars+=("SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}")
+    railway_names+=(SUPABASE_SERVICE_ROLE_KEY)
+  fi
+
   if ! command -v railway >/dev/null 2>&1; then
-    echo "Railway CLI not found; skipped Railway sync." >&2
+    print_railway_manual_instructions "${railway_names[@]}"
     exit 0
   fi
-  echo "==> Syncing publishable key to Railway (SUPABASE_URL + SUPABASE_ANON_KEY)"
-  railway variable set \
-    "SUPABASE_URL=${SUPABASE_URL}" \
-    "SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}" \
-    --json >/dev/null
+
+  echo "==> Syncing to Railway (${railway_names[*]})"
+  railway variable set "${railway_vars[@]}" --json >/dev/null
   echo "Railway variables updated."
 fi
 
