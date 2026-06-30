@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ML Job Swarm — Completion Status</title>
+  <style>
+    :root {
+      --bg: #0c0e14;
+      --surface: #151922;
+      --surface2: #1c2130;
+      --border: #2a3144;
+      --text: #e9ecf3;
+      --muted: #95a0b8;
+      --accent: #6ea8fe;
+      --green: #3dd68c;
+      --green-bg: #142a22;
+      --amber: #f5c542;
+      --amber-bg: #2a2414;
+      --red: #ff7b72;
+      --red-bg: #2a1818;
+      --purple: #c4a7ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem 1.25rem 4rem;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    h1 { font-size: 1.75rem; margin: 0 0 0.35rem; letter-spacing: -0.02em; }
+    .sub { color: var(--muted); margin: 0 0 2rem; font-size: 0.95rem; }
+    .sub a { color: var(--accent); }
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .stat {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+    }
+    .stat dt { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0 0 0.25rem; }
+    .stat dd { font-size: 1.35rem; font-weight: 700; margin: 0; }
+    .pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      margin-right: 0.35rem;
+      vertical-align: middle;
+    }
+    .done { background: var(--green-bg); color: var(--green); }
+    .next { background: var(--amber-bg); color: var(--amber); }
+    .block { background: var(--red-bg); color: var(--red); }
+    .planned { background: #221a2e; color: var(--purple); }
+    section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.35rem;
+      margin-bottom: 1.1rem;
+    }
+    h2 {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+    h3 {
+      font-size: 1rem;
+      margin: 1.25rem 0 0.5rem;
+      color: var(--text);
+    }
+    h3:first-child { margin-top: 0; }
+    .wave {
+      border-top: 1px solid var(--border);
+      padding: 1rem 0;
+    }
+    .wave:first-child { border-top: none; padding-top: 0; }
+    .wave-head {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.65rem;
+    }
+    .wave-title { font-weight: 700; font-size: 1.05rem; }
+    ul.changes { margin: 0.4rem 0 0; padding-left: 1.2rem; color: var(--muted); }
+    ul.changes li { margin: 0.35rem 0; }
+    ul.changes code, p code, td code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.82em;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      padding: 0.1rem 0.35rem;
+      border-radius: 4px;
+      color: #c8d4f0;
+    }
+    .file-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+    .file {
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.35rem 0.55rem;
+      color: #a8b8d8;
+      word-break: break-all;
+    }
+    .file.new { border-color: #2a4a3a; color: var(--green); }
+    .file.mod { border-color: #3a3520; color: var(--amber); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.55rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    .diagram {
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      line-height: 1.5;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.1rem;
+      color: var(--muted);
+      overflow-x: auto;
+      white-space: pre;
+      margin: 0.75rem 0 0;
+    }
+    .item {
+      display: grid;
+      grid-template-columns: 1.4rem 1fr;
+      gap: 0.6rem 0.75rem;
+      padding: 0.85rem 0;
+      border-top: 1px solid var(--border);
+    }
+    .item:first-of-type { border-top: none; padding-top: 0; }
+    .box {
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 2px solid var(--border);
+      border-radius: 4px;
+      margin-top: 0.15rem;
+    }
+    .box.done-box { background: var(--green); border-color: var(--green); }
+    .box.open-box { border-color: var(--amber); }
+    .item-title { font-weight: 600; }
+    .item-desc { color: var(--muted); font-size: 0.9rem; margin-top: 0.15rem; }
+    .cmd {
+      display: block;
+      margin-top: 0.5rem;
+      padding: 0.65rem 0.85rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: ui-monospace, monospace;
+      font-size: 0.78rem;
+      color: #b8c8e8;
+      overflow-x: auto;
+    }
+    .footer {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-top: 2rem;
+      text-align: center;
+    }
+    .tier-bar {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin: 0.75rem 0;
+    }
+    .tier {
+      flex: 1;
+      min-width: 200px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.85rem 1rem;
+    }
+    .tier-name { font-weight: 700; margin-bottom: 0.25rem; }
+    .tier-status { font-size: 0.85rem; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ML Job Swarm — What Changed &amp; What’s Left</h1>
+    <p class="sub">
+      Branch <code>cursor/job-swarm-completion-a771</code> ·
+      <a href="https://github.com/davidlifschitz/job-swarm/pull/1">Draft PR #1</a> ·
+      Generated 2026-06-29
+    </p>
+
+    <dl class="hero-stats">
+      <div class="stat"><dt>Tests</dt><dd>530 pass</dd></div>
+      <div class="stat"><dt>Code waves</dt><dd>5 / 5</dd></div>
+      <div class="stat"><dt>Seed sources</dt><dd>82 supported</dd></div>
+      <div class="stat"><dt>Ops steps left</dt><dd>3</dd></div>
+    </dl>
+
+    <!-- BIG PICTURE -->
+    <section>
+      <h2>Big picture</h2>
+      <div class="tier-bar">
+        <div class="tier">
+          <div class="tier-name">Tier 1 — macOS app</div>
+          <div class="tier-status"><span class="pill done">Complete</span> Homebrew + GitHub releases</div>
+        </div>
+        <div class="tier">
+          <div class="tier-name">Tier 2 — Hosted web</div>
+          <div class="tier-status"><span class="pill next">Code done</span> Production cutover pending (Railway + Supabase ops)</div>
+        </div>
+        <div class="tier">
+          <div class="tier-name">Tier 3 — App stores</div>
+          <div class="tier-status"><span class="pill planned">Not started</span> Notarization, MAS, Android/PWA</div>
+        </div>
+      </div>
+      <div class="diagram">BEFORE (gap)                          AFTER THIS PR (code)
+─────────────────────────────────────────────────────────────────────────
+V1 local product ✅                     V1 local product ✅ (unchanged core)
+Cloud API only (JSON)                   + Cloud operator HTML UI (/cloud/runs)
+Metric helpers, no CI gates             + Threshold gates + product-gates CI job
+No parity/load probes in CI             + Parity fixtures + load test + cloud-parity.yml
+No nightly seed audit                   + nightly-seed-audit.yml (live ATS refresh)
+Missing .env.hosted.example             + .env.hosted.example template
+Tier 2 cutover = manual                 Still manual — runbook expanded, not executed
+Cloud SLO alerting/uptime               Still ops — probe script added, not deployed
+Apple notarization                      Still not started</div>
+    </section>
+
+    <!-- CHANGES BY WAVE -->
+    <section>
+      <h2>Changes shipped (by wave)</h2>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 1 — Quantitative gates</span>
+          <span class="pill done">Done</span>
+        </div>
+        <ul class="changes">
+          <li><code>evaluate_product_metrics()</code> — fails when refresh &lt; 90%, packet rate &lt; 95%, external submit paths &gt; 0, etc.</li>
+          <li>Seed policy gate — all 82 seed sources classified as <code>supported</code></li>
+          <li>Offline seed refresh audit script (fixture-dir, no live network in PR CI)</li>
+          <li>Golden profile matching gate — ≥80% top-20 on fixture</li>
+          <li>Catalog quality gate — duplicate rate &amp; stale closed-job thresholds</li>
+          <li>Hosted env template for Railway + Supabase Phase B</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file mod">ml_job_swarm/product_goals.py</div>
+          <div class="file mod">tests/test_product_goals.py</div>
+          <div class="file new">tests/test_seed_policy_gate.py</div>
+          <div class="file new">scripts/seed_refresh_audit.py</div>
+          <div class="file new">tests/test_seed_refresh_audit.py</div>
+          <div class="file new">tests/test_golden_profile_matching.py</div>
+          <div class="file new">tests/fixtures/golden_profiles/…</div>
+          <div class="file new">tests/test_catalog_quality_gate.py</div>
+          <div class="file new">.env.hosted.example</div>
+          <div class="file mod">.gitignore</div>
+        </div>
+      </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 2 — Cloud operator UI</span>
+          <span class="pill done">Done</span>
+        </div>
+        <ul class="changes">
+          <li>Dashboard panel when a non-terminal cloud run exists (stage + next action)</li>
+          <li><code>GET /cloud/runs</code> — list runs for signed-in user</li>
+          <li><code>GET /cloud/runs/{id}</code> — detail, events, redacted output manifest</li>
+          <li><code>POST /cloud/runs/start</code> — start workflow from form</li>
+          <li><code>POST /cloud/runs/{id}/cancel</code> — cancel from form</li>
+          <li>Nav link in app shell → ≤2 clicks from dashboard to run detail</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file mod">ml_job_swarm/app.py</div>
+          <div class="file new">ml_job_swarm/web/templates/cloud_runs.html</div>
+          <div class="file new">ml_job_swarm/web/templates/cloud_run_detail.html</div>
+          <div class="file mod">ml_job_swarm/web/templates/dashboard.html</div>
+          <div class="file mod">ml_job_swarm/web/templates/base.html</div>
+          <div class="file mod">ml_job_swarm/web/static/app.css</div>
+          <div class="file new">tests/test_routes_cloud_ui.py</div>
+        </div>
+      </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 3 — Cloud SLO code</span>
+          <span class="pill done">Done</span>
+        </div>
+        <ul class="changes">
+          <li>Structured JSON logs on every cloud state transition</li>
+          <li>Golden parity baseline (47 decisions, 100% match vs 99% P0 target)</li>
+          <li>Load test — 10 queued runs drain with 0 duplicate packets</li>
+          <li><code>cloud-health-probe.sh</code> — measures /healthz p95 vs 200ms SLO</li>
+          <li>Error-state matrix (no resume, no profile, no consent, source failure)</li>
+          <li>Observability matrix (refresh/save/packet prep → audit records, no secret leakage)</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file new">ml_job_swarm/cloud_logging.py</div>
+          <div class="file mod">ml_job_swarm/cloud_runtime.py</div>
+          <div class="file new">tests/test_cloud_logging_schema.py</div>
+          <div class="file new">tests/fixtures/cloud_parity/…</div>
+          <div class="file new">tests/test_cloud_runtime_parity_fixtures.py</div>
+          <div class="file new">scripts/run-cloud-parity-check.sh</div>
+          <div class="file new">tests/support/cloud_load_seed.py</div>
+          <div class="file new">tests/test_cloud_load_capacity.py</div>
+          <div class="file new">scripts/run-cloud-load-test.py</div>
+          <div class="file new">scripts/cloud-health-probe.sh</div>
+          <div class="file new">tests/test_cloud_health_probe_script.py</div>
+          <div class="file new">tests/test_error_handling_gates.py</div>
+          <div class="file new">tests/test_operator_observability_gate.py</div>
+        </div>
+      </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 4 — CI workflows</span>
+          <span class="pill done">Done</span>
+        </div>
+        <ul class="changes">
+          <li><code>product-gates</code> job — runs gate test subset on every PR/push</li>
+          <li><code>cloud-parity.yml</code> — parity + load tests on PR/push</li>
+          <li><code>nightly-seed-audit.yml</code> — daily live public ATS refresh, fails if success &lt; 90%</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file mod">.github/workflows/ci.yml</div>
+          <div class="file new">.github/workflows/cloud-parity.yml</div>
+          <div class="file new">.github/workflows/nightly-seed-audit.yml</div>
+        </div>
+      </div>
+
+      <div class="wave">
+        <div class="wave-head">
+          <span class="wave-title">Wave 5 — Documentation</span>
+          <span class="pill done">Done</span>
+        </div>
+        <ul class="changes">
+          <li>Plan index + e2e-product-readiness updated with new slices</li>
+          <li>Tier 2 dry-run verification checklist appended</li>
+          <li>Orchestration plan checklist (this run’s source of truth)</li>
+        </ul>
+        <div class="file-grid">
+          <div class="file mod">docs/superpowers/plans/README.md</div>
+          <div class="file mod">docs/superpowers/e2e-product-readiness.md</div>
+          <div class="file mod">docs/tier2-hosted-web.md</div>
+          <div class="file new">docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHERE IT STILL NEEDS TO GO -->
+    <section>
+      <h2>Where it still needs to go</h2>
+
+      <h3><span class="pill next">Next</span> Merge &amp; verify CI</h3>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">Merge PR #1 to main</div>
+          <div class="item-desc">Confirm GitHub Actions: python-tests, product-gates, postgres-tests, cloud-parity, docker-build all green.</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">First nightly seed audit run</div>
+          <div class="item-desc">After merge, workflow runs daily at 06:00 UTC (or trigger manually via workflow_dispatch). Needs live network to public ATS endpoints. May flake on rate limits — watch artifact <code>nightly_seed_audit.json</code>.</div>
+        </div>
+      </div>
+
+      <h3><span class="pill block">Ops</span> Tier 2 production cutover</h3>
+      <p style="color:var(--muted);margin:0 0 0.75rem;font-size:0.9rem;">Code is ready; these steps need Railway + Supabase credentials. Full runbook: <code>docs/tier2-hosted-web.md</code></p>
+
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">OPS-1 — Railway Phase B cutover</div>
+          <div class="item-desc">
+            Export volume SQLite + resume files → set <code>DATABASE_URL</code> + <code>SUPABASE_SERVICE_ROLE_KEY</code> on web + worker → run <code>./scripts/railway-cutover.sh</code> → post-cutover smoke.
+          </div>
+          <span class="cmd">./scripts/railway-cutover.sh --dry-run   # local validation first
+./scripts/railway-cutover.sh --smoke-only https://your-app.up.railway.app "$TOKEN"</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">OPS-2 — Supabase hygiene</div>
+          <div class="item-desc">Create <code>resume-assets</code> bucket + RLS policies; rotate/delete leaked secret keys; re-import resume + LinkedIn CSV while signed in (pre-auth rows have empty <code>user_id</code>).</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">Add Railway cloud worker service</div>
+          <div class="item-desc">Second service, same image, <code>ML_JOB_SWARM_PROCESS=worker</code>, shared <code>DATABASE_URL</code> after Phase B.</div>
+        </div>
+      </div>
+
+      <h3><span class="pill planned">Later</span> Cloud production SLOs (ops / infra)</h3>
+      <p style="color:var(--muted);margin:0 0 0.75rem;font-size:0.9rem;">Baseline code exists; these need deployed monitoring — see <code>docs/cloud-production-server-goals.md</code></p>
+      <table>
+        <thead>
+          <tr><th>Area</th><th>Status after PR</th><th>Still needed</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Health latency p95</td>
+            <td><code>cloud-health-probe.sh</code> exists</td>
+            <td>Run as cron/synthetic probe against production URL</td>
+          </tr>
+          <tr>
+            <td>Availability 99.5%+</td>
+            <td><code>/healthz</code> endpoint</td>
+            <td>External uptime monitor (60s interval)</td>
+          </tr>
+          <tr>
+            <td>Alerting</td>
+            <td>Structured cloud logs</td>
+            <td>Pager/notify on heartbeat gap, queue backlog, SLO breach</td>
+          </tr>
+          <tr>
+            <td>Backup / restore</td>
+            <td>RPO/RTO targets in metadata</td>
+            <td>Supabase backups + quarterly restore drill</td>
+          </tr>
+          <tr>
+            <td>Cost tracking</td>
+            <td>—</td>
+            <td>Railway billing export tagged by service</td>
+          </tr>
+          <tr>
+            <td>UI perf p95 ≤ 1s</td>
+            <td>—</td>
+            <td>Optional: add slow-marked perf smoke (500 jobs / 50 sources)</td>
+          </tr>
+          <tr>
+            <td>Live E2E in PR CI</td>
+            <td>Manual <code>live_e2e_smoke.py</code></td>
+            <td>Playwright + network job (optional, flaky)</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3><span class="pill planned">Tier 3</span> Distribution polish</h3>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">OPS-3 — Apple notarization</div>
+          <div class="item-desc">Developer ID cert + <code>notarize-macos-app.sh</code> in CI when secrets present. Removes Gatekeeper warnings on browser download.</div>
+        </div>
+      </div>
+      <div class="item">
+        <div class="box open-box"></div>
+        <div>
+          <div class="item-title">App Store / Android / PWA</div>
+          <div class="item-desc">Strategy undecided. macOS app stays local SQLite; hosted web is Tier 2. See <code>docs/tier3-app-stores.md</code>.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- USER-FACING NEW SURFACES -->
+    <section>
+      <h2>New surfaces you can try locally</h2>
+      <table>
+        <thead>
+          <tr><th>Surface</th><th>URL / command</th><th>What it does</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cloud runs list</td>
+            <td><code>/cloud/runs</code></td>
+            <td>List durable cloud workflow runs; start new run form</td>
+          </tr>
+          <tr>
+            <td>Cloud run detail</td>
+            <td><code>/cloud/runs/{run_id}</code></td>
+            <td>Stage, events, next action, cancel button</td>
+          </tr>
+          <tr>
+            <td>Dashboard panel</td>
+            <td><code>/dashboard</code></td>
+            <td>Active cloud run card when a run is in progress</td>
+          </tr>
+          <tr>
+            <td>Seed refresh audit</td>
+            <td><code>uv run python scripts/seed_refresh_audit.py --help</code></td>
+            <td>Offline fixture refresh + JSON metrics</td>
+          </tr>
+          <tr>
+            <td>Parity check</td>
+            <td><code>./scripts/run-cloud-parity-check.sh</code></td>
+            <td>99% local/cloud decision parity on golden fixtures</td>
+          </tr>
+          <tr>
+            <td>Health probe</td>
+            <td><code>BASE_URL=http://127.0.0.1:8765 ./scripts/cloud-health-probe.sh</code></td>
+            <td>p95 /healthz latency vs 200ms target</td>
+          </tr>
+        </tbody>
+      </table>
+      <span class="cmd">uv sync
+ML_JOB_SWARM_DB_PATH=jobs.db uv run uvicorn 'ml_job_swarm.app:create_app_from_env' --factory --host 127.0.0.1 --port 8765
+# open http://127.0.0.1:8765/cloud/runs</span>
+    </section>
+
+    <!-- ROADMAP VISUAL -->
+    <section>
+      <h2>Roadmap at a glance</h2>
+      <div class="diagram">[DONE] V1 local product ────────────────────────────────────────────────┐
+[DONE] Cloud JSON API + worker ─────────────────────────────────────────┤
+[DONE] This PR: gates + cloud UI + SLO code + CI ───────────────────────┤  ← you are here
+[NEXT] Merge PR + green CI ─────────────────────────────────────────────┤
+[NEXT] Tier 2 production cutover (Railway/Supabase ops) ────────────────┤
+[NEXT] Deploy health probe + uptime monitoring ─────────────────────────┤
+[LATER] Tier 3 notarization + app stores ──────────────────────────────┘</div>
+    </section>
+
+    <p class="footer">
+      Open this file in a browser:<br />
+      <code>file:///workspace/tmp/job-swarm-completion-status.html</code><br />
+      Or from repo root: <code>tmp/job-swarm-completion-status.html</code>
+    </p>
+  </div>
+</body>
+</html>
