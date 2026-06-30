@@ -150,7 +150,7 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
   - **Subagent:** generalPurpose
   - **Acceptance:** No stale "W4-T2 pending" or "workflow not committed" text
 
-- [ ] **W6-T2 Local ops dry-run verification**
+- [x] **W6-T2 Local ops dry-run verification**
   - **Owns:** `docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md` (OPS verification section only)
   - **Do NOT touch:** application code
   - **Subagent:** generalPurpose
@@ -160,7 +160,7 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
 
 ## Wave 7 — Merge to main (single task)
 
-- [ ] **W7-T1 Merge PR #1**
+- [x] **W7-T1 Merge PR #1**
   - **Owns:** GitHub PR #1 only (merge operation)
   - **Do NOT touch:** code unless CI fails on merge queue
   - **Subagent:** orchestrator (gh pr ready + gh pr merge)
@@ -170,7 +170,7 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
 
 ## Wave 8 — Post-merge verification (single task)
 
-- [ ] **W8-T1 Verify main + update checklist**
+- [x] **W8-T1 Verify main + update checklist**
   - **Owns:** `docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md`, `tmp/job-swarm-completion-status.html`
   - **Acceptance:** `git checkout main && pull`; pytest green; orchestration plan marks W6-W8 complete; OPS marked runbook-verified
 
@@ -184,10 +184,20 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
 
 **Acceptance for ops:** Runbook + dry-run scripts pass locally (**W6-T2**); production steps documented for maintainer.
 
+### Local ops verification (2026-06-30)
+
+| Check | Result |
+| --- | --- |
+| `uv run pytest -q` on `main` | 530 passed, 12 skipped |
+| `./scripts/run-cloud-parity-check.sh` | pass |
+| `uv run python scripts/run-cloud-load-test.py` | pass |
+| `uv run ml-job-swarm migrate-hosted --dry-run` | pass |
+| PR #1 merged | `c6b4b47` on `main` |
+
+**OPS runbook verified locally.** OPS-1–3 production execution remains blocked on maintainer credentials.
+
 ---
 
-## Integration gates (after each wave)
+## Completion status
 
-1. `uv run pytest -q` — full suite green
-2. Fix any integration breakage before next wave
-3. Commit + push on branch `cursor/job-swarm-completion-a771`
+All code waves **W1–W8 complete**. Remaining work is **ops-only** (Railway/Supabase/Apple secrets).
