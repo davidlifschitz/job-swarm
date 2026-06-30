@@ -246,4 +246,4 @@ These steps cannot be verified locally without maintainer credentials:
 - **OPS-1** Railway Phase B cutover: set live `DATABASE_URL`, run `railway-cutover.sh` (non–dry-run), deploy worker service.
 - **OPS-2** Supabase bucket creation + secret rotation: `supabase link`, `supabase db push`, Storage policies, `./scripts/sync-supabase-secrets.sh --railway`.
 - **OPS-3** Apple notarization / Tier 3 release (see `docs/tier1-macos-release.md`).
-- **Nightly live seed audit**: scheduled `.github/workflows/nightly-seed-audit.yml` (W4-T2) — pending; offline audit in step 5 is the local substitute.
+- **Nightly live seed audit**: `.github/workflows/nightly-seed-audit.yml` is committed (06:00 UTC schedule + `workflow_dispatch`); first scheduled run after merge to default branch. Offline audit in step 5 remains the local substitute.

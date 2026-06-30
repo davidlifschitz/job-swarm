@@ -142,13 +142,47 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
 
 ---
 
-## Ops-only (cannot complete without production secrets)
+## Wave 6 — Doc sync & local ops verification (parallel)
+
+- [x] **W6-T1 Doc drift fix (nightly audit → Done)**
+  - **Owns:** `docs/superpowers/e2e-product-readiness.md`, `docs/superpowers/plans/README.md`, `docs/tier2-hosted-web.md` (ops bullet only)
+  - **Do NOT touch:** code, workflows
+  - **Subagent:** generalPurpose
+  - **Acceptance:** No stale "W4-T2 pending" or "workflow not committed" text
+
+- [ ] **W6-T2 Local ops dry-run verification**
+  - **Owns:** `docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md` (OPS verification section only)
+  - **Do NOT touch:** application code
+  - **Subagent:** generalPurpose
+  - **Acceptance:** Records results of pytest, parity script, seed audit, migrate dry-run; marks OPS runbook verified locally
+
+---
+
+## Wave 7 — Merge to main (single task)
+
+- [ ] **W7-T1 Merge PR #1**
+  - **Owns:** GitHub PR #1 only (merge operation)
+  - **Do NOT touch:** code unless CI fails on merge queue
+  - **Subagent:** orchestrator (gh pr ready + gh pr merge)
+  - **Acceptance:** PR merged to main; branch CI green on head commit
+
+---
+
+## Wave 8 — Post-merge verification (single task)
+
+- [ ] **W8-T1 Verify main + update checklist**
+  - **Owns:** `docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md`, `tmp/job-swarm-completion-status.html`
+  - **Acceptance:** `git checkout main && pull`; pytest green; orchestration plan marks W6-W8 complete; OPS marked runbook-verified
+
+---
+
+## Ops-only (production execution — blocked on secrets)
 
 - [ ] **OPS-1** Railway Phase B cutover (DATABASE_URL, migration, worker service)
 - [ ] **OPS-2** Supabase bucket + secret rotation
 - [ ] **OPS-3** Apple notarization / Tier 3
 
-**Acceptance for ops:** Runbook + dry-run scripts pass locally; production steps documented for maintainer.
+**Acceptance for ops:** Runbook + dry-run scripts pass locally (**W6-T2**); production steps documented for maintainer.
 
 ---
 

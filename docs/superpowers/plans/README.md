@@ -21,7 +21,7 @@ this directory, but this index tracks the currently relevant V1 product slices.
 | Done | `2026-06-29-job-swarm-completion-orchestration.md` | Quantitative product gates: `product_goals.py`, seed-policy gate, golden-profile matching, catalog quality, offline seed refresh audit, and hosted env template (`.env.hosted.example`). |
 | Done | `2026-06-29-job-swarm-completion-orchestration.md` | Cloud operator UI: dashboard active-run card, `/cloud/runs` list/detail, cancel/start forms, and auth scoping (`tests/test_routes_cloud_ui.py`). |
 | Done | `2026-06-29-job-swarm-completion-orchestration.md` | Cloud SLO code: structured cloud logging, runtime parity fixtures, load-capacity fixture, health probe script, and error/observability gate tests. |
-| Done | `2026-06-29-job-swarm-completion-orchestration.md` | CI workflows: `product-gates` job in `ci.yml` and `cloud-parity.yml` on PR/push (nightly live seed audit workflow pending W4-T2). |
+| Done | `2026-06-29-job-swarm-completion-orchestration.md` | CI workflows: `product-gates` job in `ci.yml` and `cloud-parity.yml` on PR/push; `.github/workflows/nightly-seed-audit.yml` ships on branch. |
 
 When a new PR finishes a slice, update this index and
 `docs/superpowers/e2e-product-readiness.md` in the same branch.
