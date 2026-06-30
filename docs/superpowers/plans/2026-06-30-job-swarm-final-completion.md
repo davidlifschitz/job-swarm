@@ -118,30 +118,34 @@ OPS-1–3: production secrets required; acceptance = maintainer runbook + `verif
 
 ---
 
-## Ops-only (maintainer credentials required)
+## Ops-only (maintainer live execution)
 
-- [ ] **OPS-1** Railway Phase B cutover (`DATABASE_URL`, migration, worker service)
-- [ ] **OPS-2** Supabase bucket + secret rotation
-- [ ] **OPS-3** Apple notarization / Tier 3
+Code-prepared (W14, PR #7): scripts, env template, and runbook ready. Live execution requires maintainer credentials.
 
-**Code-prepared acceptance:** `verify-ops-readiness.sh` + CI `product-gates` + `hosted-preflight` green; maintainer steps documented in `docs/tier2-hosted-web.md`.
+- [x] **OPS-1 code-prepared** — `railway-cutover.sh --check-env`, `run-production-ops.sh --ops-1`
+- [x] **OPS-2 code-prepared** — `bootstrap-supabase.sh`, `sync-supabase-secrets.sh --check-env --railway`
+- [x] **OPS-3 code-prepared** — `notarize-macos-app.sh --require`, `run-production-ops.sh --ops-3`
+- [ ] **OPS-1 live** — maintainer runs cutover with `DATABASE_URL` + SQLite export
+- [ ] **OPS-2 live** — maintainer Supabase login + bucket + secret rotation
+- [ ] **OPS-3 live** — maintainer Apple notarization on macOS release
+
+**Maintainer runbook:** [`docs/maintainer-production-ops.md`](../../maintainer-production-ops.md) · **Preflight:** `./scripts/run-production-ops.sh --check-env` and `--dry-run`
 
 ---
 
 ## Completion status
 
-W1–W8: **complete** on `main`. W9–W12: **complete**. W13: **complete**.
+W1–W8: **complete** on `main`. W9–W13: **complete** (PR #6). W14 OPS packaging: **complete** (PR #7).
 
-All agent-executable code, CI, and doc work is **done**. OPS-1–3 remain **maintainer-executed** with production credentials (runbook in `docs/tier2-hosted-web.md`; local dry-run via `./scripts/verify-ops-readiness.sh`).
+All agent-executable work is **done**. OPS live execution is **maintainer-only** with production credentials.
 
-### Local verification (2026-06-30, final completion)
+### Local verification (2026-06-30)
 
 | Check | Result |
 | --- | --- |
-| `uv run pytest -q` | 536 passed, 12 skipped |
-| `./scripts/verify-ops-readiness.sh` | pass (includes env template gate) |
-| CI jobs | `python-tests`, `product-gates`, `hosted-preflight`, `postgres-tests`, `cloud-parity`, `docker-build`, `macos-build` |
-| PRs #1–#5 merged on main | `08ae122` + final completion PR pending |
-| Nightly live seed audit | workflow uses `seed_refresh_audit.py --evaluate-live` |
-
-**OPS runbook verified locally.** OPS-1–3 production execution blocked on maintainer credentials only.
+| `uv run pytest -q` | 543 passed, 12 skipped |
+| `./scripts/verify-ops-readiness.sh` | pass |
+| `./scripts/run-production-ops.sh --check-env` | reports missing creds (expected locally) |
+| `./scripts/run-production-ops.sh --dry-run` | pass |
+| CI jobs | `python-tests`, `product-gates`, `hosted-preflight`, `postgres-tests`, `cloud-parity`, `docker-build`, `macos-build`, nightly seed audit |
+| PRs #1–#6 merged on main | `dd695dd` + OPS packaging PR #7 pending |

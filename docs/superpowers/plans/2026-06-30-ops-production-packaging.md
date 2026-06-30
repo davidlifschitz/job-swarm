@@ -58,13 +58,13 @@ W14a (parallel, disjoint files)
 
 ## Wave 14b — Unified maintainer orchestrator
 
-- [ ] **W14b-T1 run-production-ops.sh**
+- [x] **W14b-T1 run-production-ops.sh**
   - **Owns:** `scripts/run-production-ops.sh` (new)
   - **Do NOT touch:** existing script internals (delegate only)
   - **Subagent:** generalPurpose
   - **Acceptance:** Subcommands `--check-env`, `--dry-run`, `--ops-1`, `--ops-2`, `--ops-3`; `--dry-run` runs verify-ops-readiness.sh
 
-- [ ] **W14b-T2 production ops tests**
+- [x] **W14b-T2 production ops tests**
   - **Owns:** `tests/test_run_production_ops_script.py`, `tests/test_notarize_macos_app_script.py` (new)
   - **Do NOT touch:** production scripts except read-only
   - **Subagent:** generalPurpose
@@ -74,13 +74,13 @@ W14a (parallel, disjoint files)
 
 ## Wave 14c — Docs and plan closure
 
-- [ ] **W14c-T1 maintainer production ops doc**
+- [x] **W14c-T1 maintainer production ops doc**
   - **Owns:** `docs/maintainer-production-ops.md` (new)
   - **Do NOT touch:** code
   - **Subagent:** generalPurpose
   - **Acceptance:** Ordered OPS-2 → OPS-1 → OPS-3 runbook with env table + script commands
 
-- [ ] **W14c-T2 Plan checkbox sync**
+- [x] **W14c-T2 Plan checkbox sync**
   - **Owns:** `docs/superpowers/plans/2026-06-30-job-swarm-final-completion.md`, `docs/superpowers/plans/2026-06-29-job-swarm-completion-orchestration.md` (OPS section only), `docs/superpowers/plans/README.md` (one row)
   - **Do NOT touch:** application code
   - **Subagent:** orchestrator
@@ -96,4 +96,8 @@ W14a (parallel, disjoint files)
 | OPS-2 | `bootstrap-supabase.sh` + `sync-supabase-secrets.sh` | Supabase CLI login |
 | OPS-3 | `notarize-macos-app.sh --require` | Apple Developer creds on macOS |
 
-**Done:** All checklist items `[x]`; `uv run pytest -q` green; `./scripts/run-production-ops.sh --check-env` runs.
+**Done:** All checklist items `[x]`; `uv run pytest -q` green; `./scripts/run-production-ops.sh --check-env` and `--dry-run` run.
+
+## Completion status
+
+**W14 complete.** All agent-executable orchestration work is done. OPS live execution (`OPS-1 live`, `OPS-2 live`, `OPS-3 live`) requires maintainer credentials only.

@@ -283,9 +283,11 @@ ML_JOB_SWARM_SOURCE_DB=/path/to/jobs.db ./scripts/railway-cutover.sh
 
 ### Ops-only (requires production secrets — not dry-run)
 
+**Maintainer runbook:** [`docs/maintainer-production-ops.md`](maintainer-production-ops.md) · **Preflight:** `./scripts/run-production-ops.sh --check-env` and `--dry-run`
+
 These steps cannot be verified locally without maintainer credentials:
 
-- **OPS-1** Railway Phase B cutover: set live `DATABASE_URL`, run `railway-cutover.sh` (non–dry-run), deploy worker service.
-- **OPS-2** Supabase bucket creation + secret rotation: `supabase link`, `supabase db push`, Storage policies, `./scripts/sync-supabase-secrets.sh --railway`.
-- **OPS-3** Apple notarization / Tier 3 release (see `docs/tier1-macos-release.md`).
-- **Nightly live seed audit**: `.github/workflows/nightly-seed-audit.yml` is committed (06:00 UTC schedule + `workflow_dispatch`); first scheduled run after merge to default branch. Offline audit in step 5 remains the local substitute.
+- **OPS-1** Railway Phase B cutover: set live `DATABASE_URL`, run `railway-cutover.sh` (non–dry-run), deploy worker service — or `./scripts/run-production-ops.sh --ops-1`.
+- **OPS-2** Supabase bucket creation + secret rotation: `bootstrap-supabase.sh`, `sync-supabase-secrets.sh --railway` — or `./scripts/run-production-ops.sh --ops-2`.
+- **OPS-3** Apple notarization / Tier 3 release (see `docs/tier3-app-stores.md`) — `./scripts/notarize-macos-app.sh --require`.
+- **Nightly live seed audit**: `.github/workflows/nightly-seed-audit.yml` on main (06:00 UTC + `workflow_dispatch`). Offline audit in step 5 remains the local substitute.

@@ -176,28 +176,32 @@ Ops-only items (Railway/Supabase live cutover, notarization secrets) → runbook
 
 ---
 
-## Ops-only (production execution — blocked on secrets)
+## Ops-only (production execution)
 
-- [ ] **OPS-1** Railway Phase B cutover (DATABASE_URL, migration, worker service)
-- [ ] **OPS-2** Supabase bucket + secret rotation
-- [ ] **OPS-3** Apple notarization / Tier 3
+Code-prepared via W14 (`docs/maintainer-production-ops.md`, `run-production-ops.sh`). Live steps require maintainer credentials.
 
-**Acceptance for ops:** Runbook + dry-run scripts pass locally (**W6-T2**); production steps documented for maintainer.
+- [x] **OPS-1 code-prepared** — `railway-cutover.sh --check-env`; maintainer live cutover documented
+- [x] **OPS-2 code-prepared** — `bootstrap-supabase.sh`, `sync-supabase-secrets.sh --check-env --railway`
+- [x] **OPS-3 code-prepared** — `notarize-macos-app.sh --require`
+- [ ] **OPS-1 live** Railway Phase B cutover with production `DATABASE_URL`
+- [ ] **OPS-2 live** Supabase bucket + secret rotation on production project
+- [ ] **OPS-3 live** Apple notarization / Tier 3 release
+
+**Acceptance for ops (code):** Runbook + dry-run scripts pass locally; `./scripts/run-production-ops.sh --dry-run` green.
 
 ### Local ops verification (2026-06-30)
 
 | Check | Result |
 | --- | --- |
-| `uv run pytest -q` on `main` | 530 passed, 12 skipped |
-| `./scripts/run-cloud-parity-check.sh` | pass |
-| `uv run python scripts/run-cloud-load-test.py` | pass |
-| `uv run ml-job-swarm migrate-hosted --dry-run` | pass |
-| PR #1 merged | `c6b4b47` on `main` |
+| `uv run pytest -q` on `main` + W14 | 543 passed, 12 skipped |
+| `./scripts/verify-ops-readiness.sh` | pass |
+| `./scripts/run-production-ops.sh --dry-run` | pass |
+| `./scripts/run-production-ops.sh --check-env` | reports missing prod creds (expected) |
 
-**OPS runbook verified locally.** OPS-1–3 production execution remains blocked on maintainer credentials.
+**OPS runbook code-prepared.** Live OPS-1–3 execution remains maintainer-only with production credentials.
 
 ---
 
 ## Completion status
 
-All code waves **W1–W8 complete**. Final completion waves **W9–W12 complete** (see `2026-06-30-job-swarm-final-completion.md`). Remaining work is **ops-only** (Railway/Supabase/Apple secrets).
+All code waves **W1–W8 complete**. Final completion **W9–W13 complete** (PR #6). OPS packaging **W14 code-prepared** (PR #7). Live OPS-1–3 execution is maintainer-only with production credentials.
