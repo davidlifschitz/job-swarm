@@ -89,7 +89,20 @@ from ml_job_swarm.profile import (
     update_preferences,
     upsert_resume_asset_record,
 )
-from ml_job_swarm.supabase_auth import supabase_config_from_env, validate_access_token
+from ml_job_swarm.app_logging import RequestLoggingMiddleware, configure_app_logging
+from ml_job_swarm.authz import require_admin_access
+from ml_job_swarm.cloud_auth import is_cloud_service_request, require_cloud_api_access
+from ml_job_swarm.csv_export import csv_safe_row
+from ml_job_swarm.resume_validation import (
+    SUPPORTED_RESUME_TYPES,
+    validate_supported_resume_upload,
+)
+from ml_job_swarm.supabase_auth import supabase_auth_enabled, supabase_config_from_env, validate_access_token
+from ml_job_swarm.upload_limits import (
+    MAX_CSV_UPLOAD_BYTES,
+    MAX_RESUME_UPLOAD_BYTES,
+    read_upload_with_limit,
+)
 from ml_job_swarm.resume_assets import (
     ResumeAssetStorageError,
     default_resume_asset_dir,
@@ -113,10 +126,6 @@ PROJECT_ROOT = PACKAGE_ROOT.parent
 TEMPLATE_DIR = PACKAGE_ROOT / "web" / "templates"
 STATIC_DIR = PACKAGE_ROOT / "web" / "static"
 DEFAULT_SEED_COMPANIES_PATH = PROJECT_ROOT / "data" / "seed_companies.json"
-SUPPORTED_RESUME_TYPES = {
-    "application/pdf": ".pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-}
 _PREFERENCE_LABELS = {
     "role": "Role",
     "level": "Level",
@@ -220,6 +229,9 @@ def create_app(
     if STATIC_DIR.exists():
         app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+    configure_app_logging()
+    app.add_middleware(RequestLoggingMiddleware)
+
     app.state.supabase_auth_config = supabase_config_from_env()
     if app.state.supabase_auth_config is not None:
         app.add_middleware(SupabaseAuthMiddleware, config=app.state.supabase_auth_config)
@@ -228,12 +240,13 @@ def create_app(
     def auth_login(request: Request, next: str = "/dashboard") -> HTMLResponse:
         if app.state.supabase_auth_config is None:
             return RedirectResponse("/dashboard", status_code=303)
+        safe_next = _safe_return_path(next, "/dashboard")
         return _render(
             request,
             "login.html",
             supabase_url=app.state.supabase_auth_config.url,
             supabase_anon_key=app.state.supabase_auth_config.anon_key,
-            next_path=next,
+            next_path=safe_next,
         )
 
     @app.post("/auth/callback")
@@ -291,7 +304,10 @@ def create_app(
         resume: Annotated[UploadFile, File()],
     ) -> RedirectResponse:
         _require_supported_resume(resume)
-        content = await resume.read()
+        content = await read_upload_with_limit(
+            resume,
+            max_bytes=MAX_RESUME_UPLOAD_BYTES,
+        )
         if not content:
             raise HTTPException(status_code=400, detail="Resume file is empty")
 
@@ -549,7 +565,10 @@ def create_app(
         request: Request,
         connections_file: Annotated[UploadFile, File()],
     ) -> RedirectResponse:
-        content = await connections_file.read()
+        content = await read_upload_with_limit(
+            connections_file,
+            max_bytes=MAX_CSV_UPLOAD_BYTES,
+        )
         if not content:
             return RedirectResponse(
                 "/connections?import_status=empty",
@@ -1203,6 +1222,7 @@ def create_app(
 
     @app.get("/admin/sources", response_class=HTMLResponse)
     def admin_sources(request: Request) -> HTMLResponse:
+        require_admin_access(request)
         source_rows = _source_health_rows(
             conn,
             app.state.adapter_registry.source_types(),
@@ -1219,7 +1239,8 @@ def create_app(
         )
 
     @app.post("/admin/source-review/{queue_id}/approve")
-    def approve_source_review(queue_id: int):
+    def approve_source_review(request: Request, queue_id: int):
+        require_admin_access(request)
         try:
             review_company_source(conn, queue_id, "approve")
         except ValueError as exc:
@@ -1227,7 +1248,8 @@ def create_app(
         return RedirectResponse("/admin/sources", status_code=303)
 
     @app.post("/admin/source-review/{queue_id}/approve-refresh")
-    def approve_source_review_and_refresh(queue_id: int):
+    def approve_source_review_and_refresh(request: Request, queue_id: int):
+        require_admin_access(request)
         try:
             result = review_company_source(conn, queue_id, "approve")
         except ValueError as exc:
@@ -1279,7 +1301,8 @@ def create_app(
         )
 
     @app.post("/admin/source-review/{queue_id}/reject")
-    def reject_source_review(queue_id: int):
+    def reject_source_review(request: Request, queue_id: int):
+        require_admin_access(request)
         try:
             review_company_source(conn, queue_id, "reject")
         except ValueError as exc:
@@ -1287,7 +1310,8 @@ def create_app(
         return RedirectResponse("/admin/sources", status_code=303)
 
     @app.post("/admin/sources/refresh")
-    def refresh_admin_sources():
+    def refresh_admin_sources(request: Request):
+        require_admin_access(request)
         source_types = app.state.adapter_registry.source_types()
         skipped = _reviewed_source_count(conn) - _reviewed_source_count(
             conn,
@@ -1313,7 +1337,8 @@ def create_app(
         )
 
     @app.post("/admin/sources/{source_id}/refresh")
-    def refresh_admin_source(source_id: int):
+    def refresh_admin_source(request: Request, source_id: int):
+        require_admin_access(request)
         source = conn.execute(
             """
             SELECT source_type, disabled_at
@@ -1366,6 +1391,7 @@ def create_app(
 
     @app.get("/admin/audit", response_class=HTMLResponse)
     def admin_audit(request: Request) -> HTMLResponse:
+        require_admin_access(request)
         return _render(
             request,
             "admin_audit.html",
@@ -1374,6 +1400,7 @@ def create_app(
 
     @app.get("/admin/runs", response_class=HTMLResponse)
     def admin_runs(request: Request) -> HTMLResponse:
+        require_admin_access(request)
         return _render(
             request,
             "admin_runs.html",
@@ -1382,6 +1409,7 @@ def create_app(
 
     @app.get("/admin/runs/{run_id}", response_class=HTMLResponse)
     def admin_run_detail(request: Request, run_id: int) -> HTMLResponse:
+        require_admin_access(request)
         run = _ingestion_run_detail(conn, run_id)
         if run is None:
             return HTMLResponse("Run not found", status_code=404)
@@ -1394,7 +1422,8 @@ def create_app(
         )
 
     @app.post("/admin/sources/{source_id}/disable")
-    def disable_source(source_id: int):
+    def disable_source(request: Request, source_id: int):
+        require_admin_access(request)
         before = conn.execute(
             "SELECT disabled_at FROM job_sources WHERE id = ?",
             (source_id,),
@@ -1433,7 +1462,8 @@ def create_app(
         return RedirectResponse("/admin/sources", status_code=303)
 
     @app.post("/admin/sources/{source_id}/enable")
-    def enable_source(source_id: int):
+    def enable_source(request: Request, source_id: int):
+        require_admin_access(request)
         before = conn.execute(
             "SELECT disabled_at FROM job_sources WHERE id = ?",
             (source_id,),
@@ -1473,6 +1503,7 @@ def create_app(
 
     @app.get("/admin/sources/friction", response_class=HTMLResponse)
     def source_friction(request: Request) -> HTMLResponse:
+        require_admin_access(request)
         return _render(
             request,
             "source_friction.html",
@@ -1481,10 +1512,12 @@ def create_app(
 
     @app.post("/admin/sources/friction/{event_id}/review")
     def review_source_friction(
+        request: Request,
         event_id: int,
         review_status: Annotated[str | None, Form()] = None,
         review_note: Annotated[str | None, Form()] = None,
     ):
+        require_admin_access(request)
         if review_status not in {"reviewed", "resolved"}:
             return HTMLResponse("Invalid review status", status_code=400)
         before = conn.execute(
@@ -1546,7 +1579,8 @@ def create_app(
         return RedirectResponse("/admin/sources/friction", status_code=303)
 
     @app.get("/admin/sources/friction.csv")
-    def export_friction_csv() -> Response:
+    def export_friction_csv(request: Request) -> Response:
+        require_admin_access(request)
         output = io.StringIO()
         writer = csv.DictWriter(
             output,
@@ -1595,6 +1629,7 @@ def create_app(
 
     @app.get("/api/cloud/runs")
     def list_cloud_runs(http_request: Request):
+        require_cloud_api_access(http_request)
         user_id = _authenticated_user_id(http_request)
         return {
             "runs": [
@@ -1604,7 +1639,8 @@ def create_app(
         }
 
     @app.post("/api/cloud/worker/run-next")
-    def run_next_cloud_workflow():
+    def run_next_cloud_workflow(http_request: Request):
+        require_cloud_api_access(http_request)
         return run_cloud_workflow_once(
             conn,
             adapter_registry=app.state.adapter_registry,
@@ -1615,6 +1651,7 @@ def create_app(
     def continue_cloud_workflow(
         body: CloudContinueWorkflowRequest, http_request: Request
     ):
+        require_cloud_api_access(http_request)
         user_id = _resolve_cloud_user_id(http_request, body.user_id)
         existing = find_run_by_idempotency_key(conn, user_id, body.idempotency_key)
         if existing is None:
@@ -1642,6 +1679,7 @@ def create_app(
 
     @app.post("/api/cloud/runs")
     def create_cloud_run(body: CloudRunCreateRequest, http_request: Request):
+        require_cloud_api_access(http_request)
         user_id = _resolve_cloud_user_id(http_request, body.user_id)
         existing = find_run_by_idempotency_key(conn, user_id, body.idempotency_key)
         if existing is not None:
@@ -1662,6 +1700,7 @@ def create_app(
 
     @app.get("/api/cloud/runs/{run_id}")
     def get_cloud_run(run_id: str, http_request: Request):
+        require_cloud_api_access(http_request)
         try:
             run = _get_cloud_run(conn, run_id, http_request)
         except RunNotFound as exc:
@@ -1672,6 +1711,7 @@ def create_app(
     def heartbeat_cloud_run(
         run_id: str, body: CloudHeartbeatRequest, http_request: Request
     ):
+        require_cloud_api_access(http_request)
         try:
             _get_cloud_run(conn, run_id, http_request)
             return record_run_heartbeat(conn, run_id, stage=body.stage)
@@ -1682,6 +1722,7 @@ def create_app(
     def cancel_cloud_run(
         run_id: str, body: CloudCancelRequest, http_request: Request
     ):
+        require_cloud_api_access(http_request)
         try:
             _get_cloud_run(conn, run_id, http_request)
             return cancel_run(conn, run_id, reason=body.reason)
@@ -1692,6 +1733,7 @@ def create_app(
     def evaluate_cloud_run_source(
         run_id: str, body: CloudSourceEvaluationRequest, http_request: Request
     ):
+        require_cloud_api_access(http_request)
         try:
             _get_cloud_run(conn, run_id, http_request)
             return evaluate_source_for_run(conn, run_id, body.url)
@@ -1702,6 +1744,7 @@ def create_app(
     def record_cloud_run_prepared_packet(
         run_id: str, body: CloudPreparedPacketRequest, http_request: Request
     ):
+        require_cloud_api_access(http_request)
         try:
             _get_cloud_run(conn, run_id, http_request)
             return record_prepared_packet(conn, run_id, body.packet_manifest)
@@ -1714,6 +1757,7 @@ def create_app(
     def cloud_run_final_submit(
         run_id: str, body: CloudFinalSubmitRequest, http_request: Request
     ):
+        require_cloud_api_access(http_request)
         try:
             _get_cloud_run(conn, run_id, http_request)
             return create_manual_final_submit_instruction(
@@ -1869,20 +1913,30 @@ def _authenticated_user_id(request: Request) -> str | None:
 
 
 def _resolve_cloud_user_id(request: Request, requested_user_id: str | None) -> str:
+    if is_cloud_service_request(request):
+        if requested_user_id:
+            return requested_user_id
+        return "cloud-worker"
     auth_user_id = _authenticated_user_id(request)
     if auth_user_id:
         if requested_user_id and requested_user_id != auth_user_id:
             raise HTTPException(status_code=403, detail="user_id mismatch")
         return auth_user_id
+    if supabase_auth_enabled():
+        raise HTTPException(status_code=401, detail="unauthorized")
     if not requested_user_id:
         raise HTTPException(status_code=400, detail="user_id is required")
     return requested_user_id
 
 
 def _get_cloud_run(conn, run_id: str, request: Request) -> dict[str, object]:
+    if is_cloud_service_request(request):
+        return get_run(conn, run_id)
     auth_user_id = _authenticated_user_id(request)
     if auth_user_id:
         return get_run_for_user(conn, run_id, user_id=auth_user_id)
+    if supabase_auth_enabled():
+        raise HTTPException(status_code=401, detail="unauthorized")
     return get_run(conn, run_id)
 
 
@@ -1981,11 +2035,7 @@ def _normalise_public_url(value: str) -> str:
 
 
 def _require_supported_resume(resume: UploadFile) -> None:
-    suffix = Path(resume.filename or "").suffix.casefold()
-    allowed_suffixes = set(SUPPORTED_RESUME_TYPES.values())
-    if resume.content_type in SUPPORTED_RESUME_TYPES and suffix in allowed_suffixes:
-        return
-    raise HTTPException(status_code=400, detail="Resume must be a PDF or DOCX file")
+    validate_supported_resume_upload(resume)
 
 
 def _resume_sections_for_profile(conn, target_profile_id: int) -> list[dict[str, object]]:

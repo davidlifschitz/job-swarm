@@ -97,6 +97,20 @@ As of `2026-05-14`, the repo has a production-runtime baseline behind `/api/clou
 - Worker failures persist as failed runs with `cloud_worker_failed` diagnostics and a `run_failed` event.
 - `ml-job-swarm-cloud-worker --db-path <path> --max-runs <n>` runs a queue-draining worker process for cloud deployments that create queued runs separately.
 
+### Observability status (2026-07-01)
+
+Implemented today:
+
+- Cloud run state transitions emit structured JSON logs via `ml_job_swarm.cloud` (`tests/test_cloud_logging_schema.py`).
+- Web/API requests emit baseline structured logs via `ml_job_swarm.app` request middleware.
+- `/healthz`, `/api/cloud/readiness`, and `scripts/cloud-health-probe.sh` support manual or CI health checks.
+
+Not yet implemented (P1 aspirational targets above):
+
+- Prometheus/statsd metrics export, histograms, worker resource metrics, and automated paging/alerting pipelines.
+
+The quantitative observability and alerting rows in the goals table remain targets; treat log schema + health probes as the current production baseline.
+
 ## Non-Goals For V1
 
 - No autonomous final submission.

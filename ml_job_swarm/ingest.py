@@ -126,15 +126,17 @@ def refresh_source(
         _finish_run(conn, run_id, status="failed", error=str(exc))
         return RefreshResult(source.id, run_id, "failed")
     except Exception as exc:
+        from ml_job_swarm.error_sanitize import sanitize_error_message
+
         _record_friction(
             conn,
             source=source,
             run_id=run_id,
             event_type="manual_review_needed",
             url=source.url,
-            details={"error": str(exc)},
+            details={"error": sanitize_error_message(exc)},
         )
-        _finish_run(conn, run_id, status="failed", error=str(exc))
+        _finish_run(conn, run_id, status="failed", error=sanitize_error_message(exc))
         return RefreshResult(source.id, run_id, "failed")
 
     if not raw_jobs:
@@ -169,6 +171,8 @@ def refresh_source(
                 jobs_updated += 1
         jobs_closed = _close_stale_jobs(conn, source, seen_job_ids)
     except Exception as exc:
+        from ml_job_swarm.error_sanitize import sanitize_error_message
+
         conn.rollback()
         _record_friction(
             conn,
@@ -176,9 +180,9 @@ def refresh_source(
             run_id=run_id,
             event_type="manual_review_needed",
             url=source.url,
-            details={"error": str(exc), "stage": "job_processing"},
+            details={"error": sanitize_error_message(exc), "stage": "job_processing"},
         )
-        _finish_run(conn, run_id, status="failed", error=str(exc))
+        _finish_run(conn, run_id, status="failed", error=sanitize_error_message(exc))
         return RefreshResult(source.id, run_id, "failed")
 
     _finish_run(

@@ -20,6 +20,12 @@ def translate_sql(sql: str, kind: BackendKind) -> str:
     return sql.replace("?", "%s")
 
 
+def sql_requests_today_filter(kind: BackendKind) -> str:
+    if kind == BackendKind.POSTGRES:
+        return "created_at::date = CURRENT_DATE"
+    return "date(created_at) = date('now')"
+
+
 def insert_ignore_sql(
     table: str,
     conflict_columns: list[str],

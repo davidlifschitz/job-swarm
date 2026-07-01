@@ -244,14 +244,18 @@ def _validation_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def llm_usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+    from ml_job_swarm.db.connection import backend_kind_from_conn
+    from ml_job_swarm.db.dialect import sql_requests_today_filter
+
     total_row = conn.execute("SELECT COUNT(*) AS count FROM llm_requests").fetchone()
     total = int(total_row["count"]) if total_row else 0
 
+    today_filter = sql_requests_today_filter(backend_kind_from_conn(conn))
     today_row = conn.execute(
-        """
+        f"""
         SELECT COUNT(*) AS count
         FROM llm_requests
-        WHERE date(created_at) = date('now')
+        WHERE {today_filter}
         """
     ).fetchone()
     today = int(today_row["count"]) if today_row else 0

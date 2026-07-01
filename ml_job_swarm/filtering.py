@@ -116,6 +116,7 @@ class CompanyResult:
 class ProfileReviewBatchResult:
     review_ids: list[int]
     failures: int
+    failure_messages: tuple[str, ...] = ()
 
 
 _WORD_RE = re.compile(r"[a-z0-9]+")
@@ -346,16 +347,24 @@ def review_jobs_for_profile_resilient(
     target_profile_id: int,
     llm_client: FitGateClient,
 ) -> ProfileReviewBatchResult:
+    from ml_job_swarm.error_sanitize import sanitize_error_message
+
     review_ids: list[int] = []
     failures = 0
+    failure_messages: list[str] = []
     for row in _candidate_job_rows(conn, target_profile_id):
         try:
             review_ids.append(
                 review_candidate_job(conn, int(row["id"]), target_profile_id, llm_client)
             )
-        except Exception:
+        except Exception as exc:
             failures += 1
-    return ProfileReviewBatchResult(review_ids=review_ids, failures=failures)
+            failure_messages.append(sanitize_error_message(exc))
+    return ProfileReviewBatchResult(
+        review_ids=review_ids,
+        failures=failures,
+        failure_messages=tuple(failure_messages),
+    )
 
 
 def rules_preview_jobs(

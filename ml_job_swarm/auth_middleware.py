@@ -5,6 +5,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import RedirectResponse, Response
 
+from ml_job_swarm.cloud_auth import is_cloud_service_request
 from ml_job_swarm.supabase_auth import SupabaseAuthConfig, validate_access_token
 
 ACCESS_TOKEN_COOKIE = "sb-access-token"
@@ -46,6 +47,9 @@ class SupabaseAuthMiddleware(BaseHTTPMiddleware):
 
         token = _extract_bearer_token(request)
         if not token:
+            if path.startswith("/api/cloud/") and is_cloud_service_request(request):
+                request.state.cloud_service_auth = True
+                return await call_next(request)
             return (
                 unauthorized_api_response()
                 if path.startswith("/api/")
