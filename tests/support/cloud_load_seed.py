@@ -70,8 +70,60 @@ def seed_cloud_load_catalog(conn: StoreConnection) -> tuple[int, int]:
             json.dumps(["remote"]),
         ),
     ).fetchone()["id"]
-    conn.commit()
+    seed_saved_packet_job(
+        conn,
+        company_id=int(company_id),
+        source_id=int(source_id),
+        profile_id=int(profile_id),
+        external_id=f"{source_id}-cloud-load",
+        apply_url="https://jobs.lever.co/cloud-load/cloud-load/apply",
+        source_url="https://jobs.lever.co/cloud-load",
+    )
     return int(source_id), int(profile_id)
+
+
+def seed_saved_packet_job(
+    conn: StoreConnection,
+    *,
+    company_id: int,
+    source_id: int,
+    profile_id: int,
+    external_id: str,
+    apply_url: str,
+    source_url: str,
+) -> int:
+    job_id = conn.execute(
+        """
+        INSERT INTO jobs (
+          company_id,
+          job_source_id,
+          external_id,
+          title,
+          location_text,
+          remote_mode,
+          seniority,
+          description_text,
+          requirements_text,
+          apply_url,
+          source_url,
+          content_hash,
+          status
+        )
+        VALUES (?, ?, ?, 'Senior Machine Learning Engineer', 'Remote', 'remote', 'senior',
+                'Cloud packet seed.', 'Python.', ?, ?, ?, 'open')
+        RETURNING id
+        """,
+        (company_id, source_id, external_id, apply_url, source_url, f"hash-{external_id}"),
+    ).fetchone()["id"]
+    conn.execute(
+        """
+        INSERT INTO job_decisions (job_id, target_profile_id, decision, notes)
+        VALUES (?, ?, 'saved', 'cloud packet candidate')
+        """,
+        (job_id, profile_id),
+    )
+    conn.commit()
+    return int(job_id)
 
 
 def enqueue_cloud_load_runs(

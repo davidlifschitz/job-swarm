@@ -20,6 +20,15 @@ def import_job_catalog(
     *,
     skip_if_jobs_exist: bool = True,
 ) -> dict[str, object]:
+    from ml_job_swarm.db.postgres_backend import PostgresDatabase
+
+    if isinstance(conn, PostgresDatabase):
+        return {
+            "status": "skipped",
+            "reason": "postgres_unsupported",
+            "path": str(source_path),
+        }
+
     if not source_path.exists():
         return {"status": "skipped", "reason": "source_missing", "path": str(source_path)}
 

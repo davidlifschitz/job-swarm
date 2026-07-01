@@ -298,6 +298,13 @@ def review_candidate_job(
         raw_response = llm_client.review_fit(payload)
         response = FitGateResponse.model_validate(raw_response)
     except Exception as exc:
+        from ml_job_swarm.error_sanitize import sanitize_error_message
+
+        conn.execute(
+            "DELETE FROM rules_filter_results WHERE id = ?",
+            (rules_result_id,),
+        )
+        conn.commit()
         record_llm_request(
             conn,
             request,
@@ -305,7 +312,7 @@ def review_candidate_job(
             response_payload=raw_response if isinstance(raw_response, dict) else {},
             error="response validation failed"
             if isinstance(exc, ValidationError)
-            else str(exc),
+            else sanitize_error_message(exc),
         )
         raise
 

@@ -63,7 +63,7 @@ def test_evaluate_product_metrics_passes_on_good_live_smoke_metrics():
         refresh_summary={
             "jobs_seen": 422,
             "sources_attempted": 10,
-            "sources_succeeded": 9,
+            "sources_succeeded": 10,
         },
         packet_prepared=True,
         saved_jobs_count=1,
@@ -238,3 +238,21 @@ def test_catalog_quality_thresholds_hold_for_seeded_refresh():
     assert metrics["target_duplicate_rate_max"] == 0.02
     assert metrics["stale_closed_visible_count"] == 1
     assert metrics["closed_hidden_after_hours"] == 48
+
+
+def test_evaluate_product_metrics_reports_catalog_duplicate_and_stale_violations():
+    violations = evaluate_product_metrics(
+        {
+            "catalog": {
+                "jobs_seen": 10,
+                "target_jobs_seen_min": 1,
+                "duplicate_rate": 0.25,
+                "target_duplicate_rate_max": 0.02,
+                "stale_closed_visible_count": 2,
+            }
+        }
+    )
+
+    assert len(violations) == 2
+    assert any("duplicate rate" in violation.casefold() for violation in violations)
+    assert any("stale closed job" in violation.casefold() for violation in violations)

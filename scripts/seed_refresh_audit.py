@@ -10,7 +10,11 @@ from pathlib import Path
 from typing import Sequence
 
 from ml_job_swarm.cli import main as cli_main
-from ml_job_swarm.product_goals import build_live_smoke_product_metrics
+from ml_job_swarm.product_goals import (
+    build_live_smoke_product_metrics,
+    catalog_quality_metrics,
+    evaluate_product_metrics,
+)
 from ml_job_swarm.store import connect, init_db
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -93,6 +97,48 @@ def _visible_failure_reason(event_type: object, details: dict[str, object]) -> s
     return str(event_type or "").strip()
 
 
+def _catalog_metrics_from_conn(conn) -> dict[str, object]:
+    rows = conn.execute(
+        """
+        SELECT id, source_url, apply_url, external_id, status, last_seen_at
+        FROM jobs
+        """
+    ).fetchall()
+    jobs = []
+    for row in rows:
+        job = dict(row)
+        if job.get("status") == "closed":
+            job["closed_at"] = job.get("last_seen_at")
+        jobs.append(job)
+    quality = catalog_quality_metrics(jobs)
+    return {
+        "jobs_seen": quality["job_count"],
+        "target_jobs_seen_min": 1,
+        "duplicate_rate": quality["duplicate_rate"],
+        "target_duplicate_rate_max": quality["target_duplicate_rate_max"],
+        "stale_closed_visible_count": quality["stale_closed_visible_count"],
+    }
+
+
+def _merge_catalog_metrics(
+    product_metrics: dict[str, object],
+    conn,
+) -> dict[str, object]:
+    merged = dict(product_metrics)
+    catalog_from_db = _catalog_metrics_from_conn(conn)
+    existing_catalog = dict(merged.get("catalog") or {})
+    jobs_seen = max(
+        int(existing_catalog.get("jobs_seen", 0) or 0),
+        int(catalog_from_db.get("jobs_seen", 0) or 0),
+    )
+    merged["catalog"] = {
+        **existing_catalog,
+        **catalog_from_db,
+        "jobs_seen": jobs_seen,
+    }
+    return merged
+
+
 def evaluate_refresh_audit(
     *,
     refresh_summary: dict[str, object],
@@ -102,19 +148,11 @@ def evaluate_refresh_audit(
     if int(refresh_summary.get("failures", 0) or 0) > 0:
         violations.append("refresh_failures")
 
-    source_refresh = product_metrics["source_refresh"]
-    if float(source_refresh["supported_source_success_rate"]) < float(
-        source_refresh["target_success_rate"]
-    ):
-        violations.append("source_success_rate_below_target")
-
-    if not bool(source_refresh["sources_have_visible_failure_reasons"]):
-        violations.append("missing_visible_failure_reasons")
-
-    catalog = product_metrics["catalog"]
-    if int(catalog["jobs_seen"]) < int(catalog["target_jobs_seen_min"]):
-        violations.append("jobs_seen_below_minimum")
-
+    refresh_metrics = {
+        "source_refresh": product_metrics.get("source_refresh", {}),
+        "catalog": product_metrics.get("catalog", {}),
+    }
+    violations.extend(evaluate_product_metrics(refresh_metrics))
     return not violations, violations
 
 
@@ -146,15 +184,17 @@ def evaluate_live_refresh_audit(
     started_at = time.monotonic()
     conn = connect(db_path)
     source_failures = load_source_failures(conn, since_run_id=previous_run_id)
-    conn.close()
-
-    product_metrics = build_live_smoke_product_metrics(
-        refresh_summary=refresh_summary,
-        packet_prepared=False,
-        saved_jobs_count=0,
-        elapsed_seconds=round(time.monotonic() - started_at, 2),
-        source_failures=source_failures,
+    product_metrics = _merge_catalog_metrics(
+        build_live_smoke_product_metrics(
+            refresh_summary=refresh_summary,
+            packet_prepared=False,
+            saved_jobs_count=0,
+            elapsed_seconds=round(time.monotonic() - started_at, 2),
+            source_failures=source_failures,
+        ),
+        conn,
     )
+    conn.close()
     audit_passed, audit_violations = evaluate_refresh_audit(
         refresh_summary=refresh_summary,
         product_metrics=product_metrics,
@@ -222,15 +262,18 @@ def run_seed_refresh_audit(
 
     conn = connect(db_path)
     source_failures = load_source_failures(conn, since_run_id=previous_run_id)
+    product_metrics = _merge_catalog_metrics(
+        build_live_smoke_product_metrics(
+            refresh_summary=refresh_summary,
+            packet_prepared=False,
+            saved_jobs_count=0,
+            elapsed_seconds=round(time.monotonic() - started_at, 2),
+            source_failures=source_failures,
+        ),
+        conn,
+    )
     conn.close()
 
-    product_metrics = build_live_smoke_product_metrics(
-        refresh_summary=refresh_summary,
-        packet_prepared=False,
-        saved_jobs_count=0,
-        elapsed_seconds=round(time.monotonic() - started_at, 2),
-        source_failures=source_failures,
-    )
     audit_passed, audit_violations = evaluate_refresh_audit(
         refresh_summary=refresh_summary,
         product_metrics=product_metrics,

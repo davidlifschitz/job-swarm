@@ -15,6 +15,29 @@ from ml_job_swarm.ingest import JobSource, RefreshError
 from ml_job_swarm.ingest import RawJob
 
 
+class _CallableFetchOpener:
+    def __init__(self, opener_fn):
+        self._opener_fn = opener_fn
+
+    def open(self, request, timeout=20):
+        return self._opener_fn(request, timeout)
+
+
+def _patch_default_fetch_opener(monkeypatch, opener_fn):
+    monkeypatch.setattr(
+        adapters,
+        "_build_safe_fetch_opener",
+        lambda: _CallableFetchOpener(opener_fn),
+    )
+
+
+def _read_once(self, payload: bytes, _size=-1):
+    if getattr(self, "_body_sent", False):
+        return b""
+    self._body_sent = True
+    return payload
+
+
 def test_greenhouse_adapter_fetches_public_board_jobs():
     seen_urls = []
 
@@ -968,14 +991,14 @@ def test_default_public_ats_fetcher_sends_browser_compatible_headers(monkeypatch
         def __exit__(self, _exc_type, _exc, _tb):
             return False
 
-        def read(self):
-            return b'{"jobs": []}'
+        def read(self, _size=-1):
+            return _read_once(self, b'{"jobs": []}')
 
     def fake_urlopen(request, timeout):
         seen_requests.append((request, timeout))
         return FakeResponse()
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     assert adapters._default_fetch_json("https://api.ashbyhq.com/posting-api/job-board/openai") == {
         "jobs": []
@@ -1006,10 +1029,10 @@ def test_default_public_ats_fetcher_retries_transient_timeout(monkeypatch):
         def __exit__(self, _exc_type, _exc, _tb):
             return False
 
-        def read(self):
+        def read(self, _size=-1):
             if self._should_timeout:
                 raise TimeoutError("read operation timed out")
-            return b'{"jobs": []}'
+            return _read_once(self, b'{"jobs": []}')
 
     def fake_urlopen(request, timeout):
         seen_requests.append((request, timeout))
@@ -1017,7 +1040,7 @@ def test_default_public_ats_fetcher_retries_transient_timeout(monkeypatch):
             return FakeResponse(should_timeout=True)
         return FakeResponse()
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     assert adapters._default_fetch_json("https://api.ashbyhq.com/posting-api/job-board/openai") == {
         "jobs": []
@@ -1041,8 +1064,8 @@ def test_default_public_careers_fetcher_retries_transient_timeout(monkeypatch):
         def __exit__(self, _exc_type, _exc, _tb):
             return False
 
-        def read(self):
-            return b"<html></html>"
+        def read(self, _size=-1):
+            return _read_once(self, b"<html></html>")
 
     def fake_urlopen(request, timeout):
         seen_requests.append((request, timeout))
@@ -1050,7 +1073,7 @@ def test_default_public_careers_fetcher_retries_transient_timeout(monkeypatch):
             raise TimeoutError("timed out")
         return FakeResponse()
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     assert adapters._default_fetch_text("https://github.careers/") == "<html></html>"
     assert len(seen_requests) == 2
@@ -1060,7 +1083,7 @@ def test_default_public_careers_fetcher_reports_persistent_timeout(monkeypatch):
     def fake_urlopen(_request, timeout):
         raise TimeoutError("timed out")
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     with pytest.raises(RefreshError) as exc_info:
         adapters._default_fetch_text("https://careers.example.com/")
@@ -1078,7 +1101,7 @@ def test_default_public_careers_fetcher_preserves_http_status_code(monkeypatch):
             fp=None,
         )
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     with pytest.raises(RefreshError) as exc_info:
         adapters._default_fetch_text("https://www.citadelsecurities.com/careers/")
@@ -1097,7 +1120,7 @@ def test_default_public_fetchers_classify_http_429_as_rate_limited(monkeypatch):
             fp=None,
         )
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     with pytest.raises(RefreshError) as json_exc:
         adapters._default_fetch_json("https://boards-api.greenhouse.io/v1/boards/example/jobs")
@@ -1118,7 +1141,7 @@ def test_default_public_ats_fetcher_reports_persistent_timeout(monkeypatch):
     def fake_urlopen(_request, timeout):
         raise TimeoutError("timed out")
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     with pytest.raises(RefreshError) as exc_info:
         adapters._default_fetch_json("https://api.ashbyhq.com/posting-api/job-board/openai")
@@ -1142,8 +1165,8 @@ def test_default_public_ats_post_fetcher_retries_transient_timeout(monkeypatch):
         def __exit__(self, _exc_type, _exc, _tb):
             return False
 
-        def read(self):
-            return b'{"jobPostings": []}'
+        def read(self, _size=-1):
+            return _read_once(self, b'{"jobPostings": []}')
 
     def fake_urlopen(request, timeout):
         seen_requests.append((request, timeout))
@@ -1151,7 +1174,7 @@ def test_default_public_ats_post_fetcher_retries_transient_timeout(monkeypatch):
             raise TimeoutError("timed out")
         return FakeResponse()
 
-    monkeypatch.setattr(adapters, "urlopen", fake_urlopen)
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", lambda: _CallableFetchOpener(fake_urlopen))
 
     assert adapters._default_post_json(
         "https://example.myworkdayjobs.com/wday/cxs/example/site/jobs",

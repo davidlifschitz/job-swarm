@@ -270,6 +270,7 @@ def test_fit_gate_client_exception_records_failed_llm_request():
         "status": "failed",
         "error": "provider timeout",
     }
+    assert conn.execute("SELECT COUNT(*) FROM rules_filter_results").fetchone()[0] == 0
 
 
 def test_resilient_profile_review_continues_after_per_job_failure():

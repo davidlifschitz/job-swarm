@@ -17,6 +17,7 @@ from typing import Sequence, TextIO
 
 from ml_job_swarm.product_goals import (
     build_live_smoke_product_metrics,
+    evaluate_product_metrics,
     manual_submit_boundary_report,
 )
 
@@ -83,6 +84,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         elapsed_seconds=round(time.monotonic() - started_at, 2),
         external_submit_paths=len(manual_submit_report["external_submit_paths"]),
     )
+    metric_violations = evaluate_product_metrics(summary["product_metrics"])
+    if metric_violations:
+        summary["product_metric_violations"] = metric_violations
+        summary["status"] = "product_metrics_failed"
+        print(json.dumps(summary, indent=2, sort_keys=True))
+        return 1
     print(json.dumps(summary, indent=2, sort_keys=True))
     return 0
 

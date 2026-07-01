@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from ml_job_swarm.app import create_app
 from ml_job_swarm.cloud_runtime import create_run
 from ml_job_swarm.ingest import RawJob
+from tests.support.cloud_load_seed import seed_saved_packet_job
 
 
 class FakeAdapter:
@@ -109,5 +110,13 @@ def _seed_cloud_route_catalog(conn):
         """,
         (resume_asset_id,),
     ).fetchone()["id"]
-    conn.commit()
+    seed_saved_packet_job(
+        conn,
+        company_id=int(company_id),
+        source_id=int(source_id),
+        profile_id=int(profile_id),
+        external_id="cloud-1",
+        apply_url="https://jobs.lever.co/acme/cloud-1/apply",
+        source_url="https://jobs.lever.co/acme",
+    )
     return source_id, profile_id

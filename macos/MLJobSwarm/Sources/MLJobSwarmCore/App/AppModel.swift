@@ -571,8 +571,19 @@ public final class AppModel: ObservableObject {
         isWorking = true
         defer { isWorking = false }
         do {
-            try await backend.apiClient.reviewJobs(targetProfileID: profileID, llmConsent: true)
-            statusMessage = "Fit review completed."
+            let result = try await backend.apiClient.reviewJobs(
+                targetProfileID: profileID,
+                llmConsent: true
+            )
+            lastRunSummary = result.runSummary
+            if let failures = result.review.flatMap({ review in
+                if case .int(let count) = review["failures"] { return count }
+                return nil
+            }), failures > 0 {
+                statusMessage = "Fit review completed with \(failures) failure(s)."
+            } else {
+                statusMessage = "Fit review completed."
+            }
             await loadLLMUsage()
             await loadDashboard()
         } catch {

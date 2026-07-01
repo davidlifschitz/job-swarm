@@ -7,6 +7,7 @@ from ml_job_swarm.cloud_runtime import create_run, get_run
 from ml_job_swarm.cloud_worker import run_cloud_worker_loop
 from ml_job_swarm.ingest import AdapterRegistry, RawJob
 from ml_job_swarm.store import connect, init_db
+from tests.support.cloud_load_seed import seed_saved_packet_job
 
 
 class FakeAdapter:
@@ -144,5 +145,13 @@ def _seed_cloud_loop_catalog(conn):
             json.dumps(["remote"]),
         ),
     ).fetchone()["id"]
-    conn.commit()
+    seed_saved_packet_job(
+        conn,
+        company_id=int(company_id),
+        source_id=int(source_id),
+        profile_id=int(profile_id),
+        external_id=f"{source_id}-cloud",
+        apply_url="https://jobs.lever.co/cloud-loop/cloud/apply",
+        source_url="https://jobs.lever.co/cloud-loop",
+    )
     return source_id, profile_id

@@ -243,11 +243,20 @@ def _validation_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return validation_payload
 
 
-def llm_usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
+def llm_usage_summary(
+    conn: sqlite3.Connection,
+    *,
+    user_id: str | None = None,
+) -> dict[str, Any]:
     from ml_job_swarm.db.connection import backend_kind_from_conn
     from ml_job_swarm.db.dialect import sql_requests_today_filter
 
-    total_row = conn.execute("SELECT COUNT(*) AS count FROM llm_requests").fetchone()
+    scope_sql, scope_params = _llm_usage_scope_sql(user_id)
+
+    total_row = conn.execute(
+        f"SELECT COUNT(*) AS count FROM llm_requests WHERE 1=1{scope_sql}",
+        scope_params,
+    ).fetchone()
     total = int(total_row["count"]) if total_row else 0
 
     today_filter = sql_requests_today_filter(backend_kind_from_conn(conn))
@@ -255,18 +264,21 @@ def llm_usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
         f"""
         SELECT COUNT(*) AS count
         FROM llm_requests
-        WHERE {today_filter}
-        """
+        WHERE {today_filter}{scope_sql}
+        """,
+        scope_params,
     ).fetchone()
     today = int(today_row["count"]) if today_row else 0
 
     by_feature_rows = conn.execute(
-        """
+        f"""
         SELECT feature, status, COUNT(*) AS count
         FROM llm_requests
+        WHERE 1=1{scope_sql}
         GROUP BY feature, status
         ORDER BY feature, status
-        """
+        """,
+        scope_params,
     ).fetchall()
 
     by_feature: dict[str, dict[str, int]] = {}
@@ -276,12 +288,14 @@ def llm_usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
         by_feature.setdefault(feature, {})[status] = int(row["count"])
 
     recent_rows = conn.execute(
-        """
+        f"""
         SELECT id, provider, model, feature, status, error, created_at
         FROM llm_requests
+        WHERE 1=1{scope_sql}
         ORDER BY id DESC
         LIMIT 25
-        """
+        """,
+        scope_params,
     ).fetchall()
 
     return {
@@ -301,3 +315,29 @@ def llm_usage_summary(conn: sqlite3.Connection) -> dict[str, Any]:
             for row in recent_rows
         ],
     }
+
+
+def _llm_usage_scope_sql(user_id: str | None) -> tuple[str, tuple[Any, ...]]:
+    if user_id is None:
+        return "", ()
+    return (
+        """
+        AND (
+          EXISTS (
+            SELECT 1
+            FROM fit_reviews fr
+            JOIN target_profiles tp ON tp.id = fr.target_profile_id
+            WHERE fr.llm_request_id = llm_requests.id
+              AND tp.user_id = ?
+          )
+          OR EXISTS (
+            SELECT 1
+            FROM resume_rewrite_suggestions rrs
+            JOIN target_profiles tp ON tp.id = rrs.target_profile_id
+            WHERE rrs.llm_request_id = llm_requests.id
+              AND tp.user_id = ?
+          )
+        )
+        """,
+        (user_id, user_id),
+    )

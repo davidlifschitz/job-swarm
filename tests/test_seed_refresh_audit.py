@@ -111,7 +111,11 @@ def test_fixture_refresh_audit_reports_visible_failure_reasons(tmp_path, capsys,
     payload = json.loads(capsys.readouterr().out)
     assert exit_code == 1
     assert payload["audit_passed"] is False
-    assert "source_success_rate_below_target" in payload["audit_violations"]
+    assert "refresh_failures" in payload["audit_violations"]
+    assert any(
+        "success rate" in violation.casefold()
+        for violation in payload["audit_violations"]
+    )
     assert payload["refresh_summary"]["sources_attempted"] == 2
     assert payload["refresh_summary"]["sources_succeeded"] == 1
     assert payload["refresh_summary"]["failures"] == 1
@@ -160,7 +164,11 @@ def test_fixture_refresh_audit_marks_missing_failure_reasons(tmp_path, monkeypat
     )
     assert exit_code == 1
     assert payload["audit_passed"] is False
-    assert "missing_visible_failure_reasons" in payload["audit_violations"]
+    assert "refresh_failures" in payload["audit_violations"]
+    assert any(
+        "visible failure reason" in violation.casefold()
+        for violation in payload["audit_violations"]
+    )
     assert payload["refresh_summary"]["sources_attempted"] == 2
     assert payload["refresh_summary"]["sources_succeeded"] == 0
     assert payload["source_failures"] == []

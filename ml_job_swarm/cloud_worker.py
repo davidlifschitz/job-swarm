@@ -287,7 +287,15 @@ def _match_jobs(
         result = {
             "mode": "llm_fit_review",
             "reviews_created": len(batch.review_ids),
-            "failures": len(batch.failures),
+            "failures": batch.failures,
+            "failure_messages": list(batch.failure_messages),
+        }
+    elif review_with_llm:
+        result = {
+            "mode": "llm_skipped",
+            "reason": "fit_gate_client_unavailable",
+            "reviews_created": 0,
+            "failures": 0,
         }
     else:
         previews = rules_preview_jobs(conn, target_profile_id, limit=50)
@@ -334,6 +342,9 @@ def _candidate_packet_job_ids(
         """
         SELECT jobs.id
         FROM jobs
+        JOIN job_decisions
+          ON job_decisions.job_id = jobs.id
+         AND job_decisions.target_profile_id = ?
         LEFT JOIN rules_filter_results
           ON rules_filter_results.id = (
             SELECT MAX(id)
@@ -341,11 +352,8 @@ def _candidate_packet_job_ids(
             WHERE job_id = jobs.id
               AND target_profile_id = ?
           )
-        LEFT JOIN job_decisions
-          ON job_decisions.job_id = jobs.id
-         AND job_decisions.target_profile_id = ?
         WHERE jobs.status = 'open'
-          AND COALESCE(job_decisions.decision, 'saved') != 'hidden'
+          AND job_decisions.decision = 'saved'
         ORDER BY COALESCE(rules_filter_results.score, 0) DESC, jobs.id ASC
         LIMIT ?
         """,

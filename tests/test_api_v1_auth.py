@@ -171,3 +171,130 @@ def test_api_v1_csv_export_is_formula_safe(tmp_path):
     response = client.get(f"/api/v1/saved-jobs/export.csv?target_profile_id={profile_id}")
     assert response.status_code == 200
     assert "'=HYPERLINK" in response.text.splitlines()[1]
+
+
+def test_api_v1_llm_usage_is_scoped_to_authenticated_user(tmp_path, auth_env):
+    app = create_app(tmp_path / "api-llm-scope.db")
+    owner_profile = _seed_owned_profile(app, user_id="owner-a")
+    conn = app.state.conn
+    company_id = conn.execute(
+        "INSERT INTO companies (name, normalized_name, stage) VALUES ('Acme', 'acme', 'growth')"
+    ).lastrowid
+    conn.execute(
+        """
+        INSERT INTO jobs (
+          company_id, external_id, title, location_text, remote_mode, seniority,
+          description_text, requirements_text, source_url, content_hash, status
+        )
+        VALUES (?, '1', 'Senior Machine Learning Engineer', 'Remote - New York, NY', 'remote',
+                'senior', 'Build ML systems with Python and PyTorch.',
+                'Python, PyTorch, and model serving.',
+                'https://example.com/jobs/1', 'hash-1', 'open')
+        """,
+        (company_id,),
+    )
+    conn.commit()
+
+    class FakeFitGateClient:
+        provider = "openrouter"
+        model = "openrouter/test-fit-model"
+        schema_version = "fit_gate.v1"
+
+        def review_fit(self, payload):
+            from ml_job_swarm.llm import FitGateResponse
+
+            return FitGateResponse(
+                fit_score=90,
+                label="Strong fit",
+                reasons=["Role match"],
+                risks=[],
+                recommendation="Prioritize",
+            )
+
+    app.state.fit_gate_client = FakeFitGateClient()
+    client = TestClient(app)
+
+    review = client.post(
+        "/api/v1/dashboard/review-jobs",
+        json={"target_profile_id": owner_profile, "llm_consent": True},
+        headers=auth_headers("owner-a"),
+    )
+    assert review.status_code == 200
+
+    owner_usage = client.get("/api/v1/llm/usage", headers=auth_headers("owner-a"))
+    other_usage = client.get("/api/v1/llm/usage", headers=auth_headers("owner-b"))
+
+    assert owner_usage.status_code == 200
+    assert other_usage.status_code == 200
+    assert owner_usage.json()["total_requests"] == 1
+    assert other_usage.json()["total_requests"] == 0
+
+
+def test_api_v1_review_jobs_returns_resilient_failure_summary(tmp_path, auth_env):
+    app = create_app(tmp_path / "api-review-resilient.db")
+    profile_id = _seed_owned_profile(app, user_id="owner-a")
+    conn = app.state.conn
+    company_id = conn.execute(
+        "INSERT INTO companies (name, normalized_name, stage) VALUES ('Acme', 'acme', 'growth')"
+    ).lastrowid
+    conn.execute(
+        """
+        INSERT INTO jobs (
+          company_id, external_id, title, location_text, remote_mode, seniority,
+          description_text, requirements_text, source_url, content_hash, status
+        )
+        VALUES (?, '1', 'Failing Machine Learning Engineer', 'Remote - New York, NY', 'remote',
+                'senior', 'Build ML systems with Python and PyTorch.',
+                'Python, PyTorch, and model serving.',
+                'https://example.com/jobs/1', 'hash-1', 'open')
+        """,
+        (company_id,),
+    )
+    conn.execute(
+        """
+        INSERT INTO jobs (
+          company_id, external_id, title, location_text, remote_mode, seniority,
+          description_text, requirements_text, source_url, content_hash, status
+        )
+        VALUES (?, '2', 'Senior Machine Learning Engineer', 'Remote - New York, NY', 'remote',
+                'senior', 'Build ML systems with Python and PyTorch.',
+                'Python, PyTorch, and model serving.',
+                'https://example.com/jobs/2', 'hash-2', 'open')
+        """,
+        (company_id,),
+    )
+    conn.commit()
+
+    class TitleSensitiveFitGateClient:
+        provider = "openrouter"
+        model = "openrouter/test-fit-model"
+        schema_version = "fit_gate.v1"
+
+        def review_fit(self, payload):
+            from ml_job_swarm.llm import FitGateResponse
+
+            if "Failing" in payload.job["title"]:
+                raise RuntimeError("provider timeout secret-token")
+            return FitGateResponse(
+                fit_score=91,
+                label="Strong fit",
+                reasons=["Role match"],
+                risks=[],
+                recommendation="Prioritize",
+            )
+
+    app.state.fit_gate_client = TitleSensitiveFitGateClient()
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/dashboard/review-jobs",
+        json={"target_profile_id": profile_id, "llm_consent": True},
+        headers=auth_headers("owner-a"),
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["review"]["failures"] == 1
+    assert payload["review"]["failure_messages"] == ["[redacted]"]
+    assert len(payload["review"]["review_ids"]) == 1

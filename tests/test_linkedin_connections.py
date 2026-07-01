@@ -10,6 +10,7 @@ from ml_job_swarm.linkedin_connections import (
     matched_catalog_companies,
     normalize_connection_company,
     parse_linkedin_connections_csv,
+    sanitize_profile_url,
 )
 from ml_job_swarm.store import connect, init_db
 
@@ -29,6 +30,21 @@ def test_parse_linkedin_connections_csv_reads_standard_export():
 def test_parse_linkedin_connections_csv_rejects_missing_header():
     with pytest.raises(ValueError, match="header row"):
         parse_linkedin_connections_csv("name,title\nAlice,Engineer")
+
+
+@pytest.mark.parametrize(
+    "url,expected",
+    [
+        ("https://www.linkedin.com/in/jamie-example", "https://www.linkedin.com/in/jamie-example"),
+        ("  https://linkedin.com/in/example  ", "https://linkedin.com/in/example"),
+        ("javascript:alert(1)", ""),
+        ("data:text/html,hi", ""),
+        ("vbscript:msgbox(1)", ""),
+        ("file:///etc/passwd", ""),
+    ],
+)
+def test_sanitize_profile_url_rejects_unsafe_schemes(url, expected):
+    assert sanitize_profile_url(url) == expected
 
 
 def test_normalize_connection_company_strips_common_suffixes():

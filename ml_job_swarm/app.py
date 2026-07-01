@@ -1065,6 +1065,7 @@ def create_app(
         company_name: str = "",
         source_url: str = "",
     ) -> HTMLResponse:
+        require_admin_access(request)
         company_name = company_name.strip()
         source_url = source_url.strip()
         return _render(
@@ -1081,9 +1082,11 @@ def create_app(
 
     @app.post("/sources/new")
     def submit_new_source(
+        request: Request,
         company_name: Annotated[str | None, Form()] = None,
         source_url: Annotated[str | None, Form()] = None,
     ):
+        require_admin_access(request)
         if not (company_name or "").strip() or not (source_url or "").strip():
             return HTMLResponse(
                 "company_name and source_url are required",
@@ -1542,7 +1545,7 @@ def create_app(
               review_note = ?
             WHERE id = ?
             """,
-            (review_status, "local-admin", sanitized_note, event_id),
+            (review_status, _admin_actor_id(request), sanitized_note, event_id),
         )
         conn.execute(
             """
@@ -1906,6 +1909,11 @@ def create_app_from_env() -> FastAPI:
             Path(catalog_import_path),
         )
     return app
+
+
+def _admin_actor_id(request: Request) -> str:
+    user_id = _authenticated_user_id(request)
+    return user_id or "local-admin"
 
 
 def _authenticated_user_id(request: Request) -> str | None:

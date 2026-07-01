@@ -121,7 +121,7 @@ def test_main_prints_quantitative_product_metrics(tmp_path, monkeypatch, capsys)
     monkeypatch.setattr(
         live_e2e_smoke,
         "manual_submit_boundary_report",
-        lambda root: {"external_submit_paths": ["unsafe.py"]},
+        lambda root: {"external_submit_paths": []},
         raising=False,
     )
 
@@ -134,4 +134,4 @@ def test_main_prints_quantitative_product_metrics(tmp_path, monkeypatch, capsys)
         payload["product_metrics"]["source_refresh"]["supported_source_success_rate"]
         == 1.0
     )
-    assert payload["product_metrics"]["manual_submission"]["external_submit_paths"] == 1
+    assert payload["product_metrics"]["manual_submission"]["external_submit_paths"] == 0

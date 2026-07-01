@@ -6,7 +6,7 @@ import re
 from typing import Any, Callable
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode, urljoin, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
 
 from ml_job_swarm.ingest import (
     AdapterRegistry,
@@ -15,7 +15,11 @@ from ml_job_swarm.ingest import (
     RawJob,
     RefreshError,
 )
-from ml_job_swarm.source_policy import classify_source_url
+from ml_job_swarm.source_policy import (
+    MAX_FETCH_RESPONSE_BYTES,
+    assert_safe_fetch_url,
+    classify_source_url,
+)
 
 
 JsonFetcher = Callable[[str], Any]
@@ -432,16 +436,43 @@ def _read_url_request(
     timeout: int = 20,
     retries: int = 1,
 ) -> tuple[bytes, str]:
+    assert_safe_fetch_url(request.full_url)
     attempts = retries + 1
+    opener = _build_safe_fetch_opener()
     for attempt in range(attempts):
         try:
-            with urlopen(request, timeout=timeout) as response:
+            with opener.open(request, timeout=timeout) as response:
                 charset = response.headers.get_content_charset() or "utf-8"
-                return response.read(), charset
+                chunks: list[bytes] = []
+                total = 0
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    total += len(chunk)
+                    if total > MAX_FETCH_RESPONSE_BYTES:
+                        raise RefreshError(
+                            "Public ATS fetch response too large",
+                            "blocked_response",
+                        )
+                    chunks.append(chunk)
+                return b"".join(chunks), charset
+        except RefreshError:
+            raise
         except Exception as exc:
             if attempt == attempts - 1 or not _is_transient_timeout(exc):
                 raise
     raise RuntimeError("unreachable public fetch retry state")
+
+
+class _SafeRedirectHandler(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        assert_safe_fetch_url(newurl)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+def _build_safe_fetch_opener():
+    return build_opener(_SafeRedirectHandler())
 
 
 def _is_transient_timeout(exc: Exception) -> bool:
