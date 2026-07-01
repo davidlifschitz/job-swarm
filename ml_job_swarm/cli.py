@@ -188,33 +188,46 @@ def _load_jobs(path: Path) -> list[RawJob]:
     return [RawJob(**item) for item in payload]
 
 
+def _scalar_int(row, key: str) -> int:
+    if row is None:
+        return 0
+    try:
+        return int(row[key])
+    except (KeyError, TypeError):
+        return int(row[0])
+
+
 def _reviewed_source_count(conn, source_types: set[str] | None = None) -> int:
     if source_types is None:
         row = conn.execute(
             """
-            SELECT COUNT(*) FROM job_sources
+            SELECT COUNT(*) AS count
+            FROM job_sources
             WHERE disabled_at IS NULL AND review_status = 'reviewed'
             """
         ).fetchone()
-        return int(row[0])
+        return _scalar_int(row, "count")
     if not source_types:
         return 0
     placeholders = ", ".join("?" for _ in source_types)
     row = conn.execute(
         f"""
-        SELECT COUNT(*) FROM job_sources
+        SELECT COUNT(*) AS count
+        FROM job_sources
         WHERE disabled_at IS NULL
           AND review_status = 'reviewed'
           AND source_type IN ({placeholders})
         """,
         sorted(source_types),
     ).fetchone()
-    return int(row[0])
+    return _scalar_int(row, "count")
 
 
 def _max_ingestion_run_id(conn) -> int:
-    row = conn.execute("SELECT COALESCE(MAX(id), 0) FROM ingestion_runs").fetchone()
-    return int(row[0])
+    row = conn.execute(
+        "SELECT COALESCE(MAX(id), 0) AS max_id FROM ingestion_runs"
+    ).fetchone()
+    return _scalar_int(row, "max_id")
 
 
 def _friction_summary_since(conn, run_id: int) -> tuple[dict[str, int], dict[str, int]]:

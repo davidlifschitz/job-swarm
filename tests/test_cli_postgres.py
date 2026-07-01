@@ -28,5 +28,6 @@ def test_cli_refresh_accepts_database_url(tmp_path, monkeypatch):
         check=False,
     )
     assert result.returncode in {0, 1}, result.stderr
+    assert result.stdout.strip(), result.stderr
     payload = json.loads(result.stdout)
     assert "sources_attempted" in payload
