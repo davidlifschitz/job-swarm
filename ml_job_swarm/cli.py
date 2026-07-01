@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Sequence
 
 from ml_job_swarm.adapters import public_ats_registry
 from ml_job_swarm.catalog import import_seed_companies
 from ml_job_swarm.ingest import AdapterRegistry, JobSource, RawJob, refresh_due_sources
-from ml_job_swarm.store import connect, init_db
+from ml_job_swarm.store import connect, init_db, open_store_connection
 
 
 class FixtureAdapter:
@@ -26,7 +27,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     refresh = subparsers.add_parser(
         "refresh", help="Run a cron-friendly local catalog refresh"
     )
-    refresh.add_argument("--db", required=True, help="SQLite database path")
+    refresh.add_argument(
+        "--db",
+        help="SQLite database path (required when DATABASE_URL is not set)",
+    )
     refresh.add_argument("--seed", help="Seed company JSON path")
     adapter_mode = refresh.add_mutually_exclusive_group(required=True)
     adapter_mode.add_argument(
@@ -113,7 +117,24 @@ def _migrate_hosted(args: argparse.Namespace) -> int:
 
 
 def _refresh(args: argparse.Namespace) -> int:
-    conn = connect(Path(args.db))
+    database_url = (os.environ.get("DATABASE_URL") or "").strip()
+    if not database_url and not args.db:
+        print(
+            json.dumps(
+                {
+                    "status": "error",
+                    "error": "Provide --db or set DATABASE_URL for refresh",
+                },
+                sort_keys=True,
+            )
+        )
+        return 2
+
+    conn = (
+        open_store_connection()
+        if database_url
+        else connect(Path(args.db))
+    )
     init_db(conn)
 
     imported = 0
@@ -167,33 +188,46 @@ def _load_jobs(path: Path) -> list[RawJob]:
     return [RawJob(**item) for item in payload]
 
 
+def _scalar_int(row, key: str) -> int:
+    if row is None:
+        return 0
+    try:
+        return int(row[key])
+    except (KeyError, TypeError):
+        return int(row[0])
+
+
 def _reviewed_source_count(conn, source_types: set[str] | None = None) -> int:
     if source_types is None:
         row = conn.execute(
             """
-            SELECT COUNT(*) FROM job_sources
+            SELECT COUNT(*) AS count
+            FROM job_sources
             WHERE disabled_at IS NULL AND review_status = 'reviewed'
             """
         ).fetchone()
-        return int(row[0])
+        return _scalar_int(row, "count")
     if not source_types:
         return 0
     placeholders = ", ".join("?" for _ in source_types)
     row = conn.execute(
         f"""
-        SELECT COUNT(*) FROM job_sources
+        SELECT COUNT(*) AS count
+        FROM job_sources
         WHERE disabled_at IS NULL
           AND review_status = 'reviewed'
           AND source_type IN ({placeholders})
         """,
         sorted(source_types),
     ).fetchone()
-    return int(row[0])
+    return _scalar_int(row, "count")
 
 
 def _max_ingestion_run_id(conn) -> int:
-    row = conn.execute("SELECT COALESCE(MAX(id), 0) FROM ingestion_runs").fetchone()
-    return int(row[0])
+    row = conn.execute(
+        "SELECT COALESCE(MAX(id), 0) AS max_id FROM ingestion_runs"
+    ).fetchone()
+    return _scalar_int(row, "max_id")
 
 
 def _friction_summary_since(conn, run_id: int) -> tuple[dict[str, int], dict[str, int]]:

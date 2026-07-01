@@ -92,11 +92,13 @@ def run_cloud_workflow_once(
             )
         )
     except Exception as exc:
+        from ml_job_swarm.error_sanitize import sanitize_error_message
+
         failed = fail_run(
             conn,
             run_id,
             error_code="cloud_worker_failed",
-            error_message=str(exc),
+            error_message=sanitize_error_message(exc),
         )
         return _worker_result(failed)
 

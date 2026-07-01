@@ -63,10 +63,17 @@ from ml_job_swarm.resume_extract import (
     record_parse_run,
 )
 
-SUPPORTED_RESUME_TYPES = {
-    "application/pdf": ".pdf",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-}
+from ml_job_swarm.authz import require_admin_access
+from ml_job_swarm.csv_export import csv_safe_row
+from ml_job_swarm.resume_validation import (
+    SUPPORTED_RESUME_TYPES,
+    validate_supported_resume_upload,
+)
+from ml_job_swarm.upload_limits import (
+    MAX_CSV_UPLOAD_BYTES,
+    MAX_RESUME_UPLOAD_BYTES,
+    read_upload_with_limit,
+)
 
 
 class JobDecisionRequest(BaseModel):
@@ -165,15 +172,9 @@ def _keywords_payload(payload: PreferencesRequest) -> dict[str, list[str]]:
     }
 
 
+
 def _require_supported_resume(resume: UploadFile) -> None:
-    suffix = Path(resume.filename or "").suffix.casefold()
-    allowed_suffixes = set(SUPPORTED_RESUME_TYPES.values())
-    if suffix in allowed_suffixes:
-        return
-    content_type = (resume.content_type or "").split(";", 1)[0].strip().lower()
-    if content_type in SUPPORTED_RESUME_TYPES:
-        return
-    raise HTTPException(status_code=400, detail="Resume must be a PDF or DOCX file")
+    validate_supported_resume_upload(resume)
 
 
 def _profile_count(conn: sqlite3.Connection, *, user_id: str | None) -> int:
@@ -397,7 +398,10 @@ def create_api_v1_router(
         resume: UploadFile = File(...),
     ) -> dict[str, object]:
         _require_supported_resume(resume)
-        content = await resume.read()
+        content = await read_upload_with_limit(
+            resume,
+            max_bytes=MAX_RESUME_UPLOAD_BYTES,
+        )
         if not content:
             raise HTTPException(status_code=400, detail="Resume file is empty")
 
@@ -680,6 +684,7 @@ def create_api_v1_router(
         connection_filter: str = "all",
     ) -> dict[str, object]:
         user_id = get_authenticated_user_id(request)
+        _require_api_profile_access(conn, target_profile_id, user_id=user_id)
         active_decision_filter = dashboard_decision_filter(decision_filter)
         active_connection_filter = dashboard_connection_filter(connection_filter)
         try:
@@ -740,12 +745,18 @@ def create_api_v1_router(
 
     @router.get("/saved-jobs/export.csv")
     def export_saved_jobs_csv(
+        request: Request,
         target_profile_id: int,
         q: str = "",
         sort: str = "recent",
     ):
         from fastapi.responses import Response
 
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         try:
             rows = saved_job_export_rows(conn, target_profile_id)
         except ValueError as exc:
@@ -778,15 +789,21 @@ def create_api_v1_router(
         )
         writer.writeheader()
         for row in filtered_rows:
-            writer.writerow(row)
+            writer.writerow(csv_safe_row(row))
         return Response(output.getvalue(), media_type="text/csv")
 
     @router.get("/saved-jobs")
     def saved_jobs(
+        request: Request,
         target_profile_id: int,
         q: str = "",
         sort: str = "recent",
     ) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         try:
             rows = saved_job_export_rows(conn, target_profile_id)
         except ValueError as exc:
@@ -815,6 +832,7 @@ def create_api_v1_router(
         target_profile_id: int,
     ) -> dict[str, object]:
         user_id = get_authenticated_user_id(request)
+        _require_api_profile_access(conn, target_profile_id, user_id=user_id)
         detail = job_detail(conn, job_id, target_profile_id)
         if detail is None:
             raise HTTPException(status_code=404, detail="Job not found")
@@ -841,9 +859,18 @@ def create_api_v1_router(
         }
 
     @router.post("/jobs/{job_id}/decision")
-    def set_job_decision(job_id: int, payload: JobDecisionRequest) -> dict[str, str]:
+    def set_job_decision(
+        request: Request,
+        job_id: int,
+        payload: JobDecisionRequest,
+    ) -> dict[str, str]:
         from ml_job_swarm.decisions import clear_job_decision, record_job_decision
 
+        _require_api_profile_access(
+            conn,
+            payload.target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         if payload.decision not in {"saved", "hidden", "clear"}:
             raise HTTPException(status_code=400, detail="Invalid decision")
         if payload.decision == "clear":
@@ -864,9 +891,15 @@ def create_api_v1_router(
 
     @router.post("/jobs/{job_id}/referral-contacts")
     def create_referral_contact(
+        request: Request,
         job_id: int,
         payload: ReferralContactRequest,
     ) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            payload.target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         if not payload.name.strip():
             raise HTTPException(status_code=400, detail="name is required")
         company_id = company_id_for_job(conn, job_id)
@@ -885,9 +918,15 @@ def create_api_v1_router(
 
     @router.post("/jobs/{job_id}/application-packet")
     def create_application_packet(
+        request: Request,
         job_id: int,
         target_profile_id: int,
     ) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         try:
             packet_id = prepare_application_packet(
                 conn,
@@ -905,9 +944,15 @@ def create_api_v1_router(
 
     @router.post("/application-packets/{packet_id}/status")
     def update_packet_status(
+        request: Request,
         packet_id: int,
         payload: ApplicationPacketStatusRequest,
     ) -> dict[str, str]:
+        _require_api_profile_access(
+            conn,
+            payload.target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         if payload.status not in {"prepared", "submitted"}:
             raise HTTPException(
                 status_code=400,
@@ -937,8 +982,12 @@ def create_api_v1_router(
         return {"status": "ok"}
 
     @router.post("/dashboard/refresh-sources")
-    def refresh_sources(target_profile_id: int) -> dict[str, object]:
-        del target_profile_id
+    def refresh_sources(request: Request, target_profile_id: int) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         summary = refresh_due_sources(
             conn,
             adapter_registry=get_adapter_registry(),
@@ -946,7 +995,12 @@ def create_api_v1_router(
         return {"status": "ok", "summary": _serialize(summary)}
 
     @router.post("/dashboard/find-matches")
-    def find_matches(payload: FindMatchesRequest) -> dict[str, object]:
+    def find_matches(request: Request, payload: FindMatchesRequest) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            payload.target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         refresh_summary = refresh_due_sources(
             conn,
             adapter_registry=get_adapter_registry(),
@@ -975,7 +1029,12 @@ def create_api_v1_router(
         }
 
     @router.post("/dashboard/review-jobs")
-    def review_jobs(payload: ReviewJobsRequest) -> dict[str, object]:
+    def review_jobs(request: Request, payload: ReviewJobsRequest) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            payload.target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         fit_gate_client = get_fit_gate_client()
         if fit_gate_client is None:
             raise HTTPException(status_code=503, detail="Fit review client unavailable")
@@ -1021,7 +1080,10 @@ def create_api_v1_router(
         request: Request,
         connections_file: UploadFile = File(...),
     ) -> dict[str, object]:
-        content = await connections_file.read()
+        content = await read_upload_with_limit(
+            connections_file,
+            max_bytes=MAX_CSV_UPLOAD_BYTES,
+        )
         if not content:
             raise HTTPException(status_code=400, detail="Uploaded file was empty")
         try:
@@ -1044,9 +1106,15 @@ def create_api_v1_router(
 
     @router.post("/profiles/{target_profile_id}/resume/rewrite")
     def rewrite_resume_section(
+        request: Request,
         target_profile_id: int,
         payload: ResumeRewriteRequest,
     ) -> dict[str, object]:
+        _require_api_profile_access(
+            conn,
+            target_profile_id,
+            user_id=get_authenticated_user_id(request),
+        )
         if payload.target_profile_id is not None and payload.target_profile_id != target_profile_id:
             raise HTTPException(status_code=400, detail="target_profile_id mismatch")
         if not payload.llm_consent:
@@ -1132,9 +1200,16 @@ def create_api_v1_router(
 
     @router.post("/resume/suggestions/{suggestion_id}/accept")
     def accept_resume_suggestion(
+        request: Request,
         suggestion_id: int,
         payload: SuggestionActionRequest,
     ) -> dict[str, str]:
+        if payload.target_profile_id is not None:
+            _require_api_profile_access(
+                conn,
+                payload.target_profile_id,
+                user_id=get_authenticated_user_id(request),
+            )
         updated = update_resume_suggestion_status(
             conn,
             suggestion_id,
@@ -1147,9 +1222,16 @@ def create_api_v1_router(
 
     @router.post("/resume/suggestions/{suggestion_id}/reject")
     def reject_resume_suggestion(
+        request: Request,
         suggestion_id: int,
         payload: SuggestionActionRequest,
     ) -> dict[str, str]:
+        if payload.target_profile_id is not None:
+            _require_api_profile_access(
+                conn,
+                payload.target_profile_id,
+                user_id=get_authenticated_user_id(request),
+            )
         updated = update_resume_suggestion_status(
             conn,
             suggestion_id,
@@ -1161,7 +1243,8 @@ def create_api_v1_router(
         return {"status": "ok"}
 
     @router.get("/admin/sources")
-    def admin_sources() -> dict[str, object]:
+    def admin_sources(request: Request) -> dict[str, object]:
+        require_admin_access(request)
         adapter_registry = get_adapter_registry()
         source_types = adapter_registry.source_types()
         sources = source_health_rows(conn, source_types)
@@ -1173,7 +1256,8 @@ def create_api_v1_router(
         }
 
     @router.post("/admin/sources/refresh")
-    def refresh_admin_sources() -> dict[str, object]:
+    def refresh_admin_sources(request: Request) -> dict[str, object]:
+        require_admin_access(request)
         summary = refresh_due_sources(
             conn,
             adapter_registry=get_adapter_registry(),
@@ -1181,7 +1265,8 @@ def create_api_v1_router(
         return {"status": "ok", "summary": _serialize(summary)}
 
     @router.post("/admin/sources/{source_id}/refresh")
-    def refresh_admin_source(source_id: int) -> dict[str, object]:
+    def refresh_admin_source(request: Request, source_id: int) -> dict[str, object]:
+        require_admin_access(request)
         source = conn.execute(
             """
             SELECT source_type, disabled_at
@@ -1206,7 +1291,8 @@ def create_api_v1_router(
         return {"status": "ok", "summary": _serialize(refresh_result)}
 
     @router.post("/admin/source-review/{queue_id}/approve")
-    def approve_source_review(queue_id: int) -> dict[str, object]:
+    def approve_source_review(request: Request, queue_id: int) -> dict[str, object]:
+        require_admin_access(request)
         try:
             result = review_company_source(conn, queue_id, "approve")
         except ValueError as exc:
@@ -1214,7 +1300,8 @@ def create_api_v1_router(
         return {"status": "ok", "result": result}
 
     @router.post("/admin/source-review/{queue_id}/reject")
-    def reject_source_review(queue_id: int) -> dict[str, object]:
+    def reject_source_review(request: Request, queue_id: int) -> dict[str, object]:
+        require_admin_access(request)
         try:
             result = review_company_source(conn, queue_id, "reject")
         except ValueError as exc:

@@ -278,8 +278,7 @@ public struct LLMSettingsStore: Sendable {
     private static func legacyEnvCandidatePaths() -> [URL] {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let candidates = [
-            home.appendingPathComponent("DavidsCodeProjects/ml-job-swarm/Legacy/.env"),
-            home.appendingPathComponent("DavidsCodeProjects/ml-job-swarm/.env"),
+            home.appendingPathComponent("Library/Application Support/MLJobSwarm/.env"),
             home.appendingPathComponent(".env"),
         ]
         return candidates.filter { FileManager.default.fileExists(atPath: $0.path) }

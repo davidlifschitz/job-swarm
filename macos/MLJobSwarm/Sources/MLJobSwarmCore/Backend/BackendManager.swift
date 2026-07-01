@@ -230,9 +230,9 @@ public final class BackendManager: ObservableObject {
 
     private static func legacyCatalogImportPath(databaseURL: URL, backendRoot: URL) -> String? {
         let candidates = [
-            FileManager.default.homeDirectoryForCurrentUser
-                .appendingPathComponent("DavidsCodeProjects/ml-job-swarm/jobs.db"),
             backendRoot.appendingPathComponent("jobs.db"),
+            FileManager.default.homeDirectoryForCurrentUser
+                .appendingPathComponent("Library/Application Support/MLJobSwarm/jobs.db"),
         ]
         guard destinationNeedsCatalogImport(databaseURL: databaseURL) else {
             return nil

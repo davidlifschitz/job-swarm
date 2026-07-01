@@ -1,6 +1,6 @@
 [project]
 name = "ml-job-swarm"
-version = "0.1.0"
+version = "0.2.1"
 description = "Local-first job catalog and resume matching for curated technical roles."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -25,6 +25,7 @@ hosted = [
 dev = [
   "httpx>=0.27",
   "pytest>=8.3",
+  "pytest-cov>=6.0",
 ]
 
 [project.scripts]
@@ -40,3 +41,6 @@ packages = ["ml_job_swarm"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["ml_job_swarm"]

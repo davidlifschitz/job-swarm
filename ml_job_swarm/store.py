@@ -400,11 +400,11 @@ def _require_sqlite_connection(
 
     if isinstance(conn, SQLiteDatabase):
         return conn.native
-    if isinstance(conn, PostgresDatabase):
-        raise NotImplementedError("Postgres schema init is implemented in Phase B1 migrations")
     if isinstance(conn, sqlite3.Connection):
         return conn
-    raise TypeError(f"Unsupported database connection type: {type(conn)!r}")
+    raise TypeError(
+        f"SQLite-only operation on unsupported connection type: {type(conn)!r}"
+    )
 
 
 def init_db(conn: sqlite3.Connection | "Database") -> None:

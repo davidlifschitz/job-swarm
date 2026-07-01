@@ -32,7 +32,7 @@ jobs:
       - name: Prepare test database directory
         run: mkdir -p /tmp/ml-job-swarm
       - name: Run pytest
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=ml_job_swarm --cov-report=term-missing
 
   product-gates:
     name: product-gates
@@ -98,6 +98,9 @@ jobs:
       - name: Build Swift app binary
         working-directory: macos/MLJobSwarm
         run: swift build -c release
+      - name: Run Swift tests
+        working-directory: macos/MLJobSwarm
+        run: swift test
       - name: Package signed app bundle
         run: |
           chmod +x scripts/*.sh

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ipaddress
 from dataclasses import dataclass
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
@@ -65,6 +66,8 @@ def classify_source_url(url: str) -> SourcePolicyResult:
 
     parsed = urlsplit(normalized_url)
     host = parsed.hostname or ""
+    if _is_blocked_fetch_host(host):
+        return SourcePolicyResult("blocked", "private_or_reserved_host", None)
     domain = _registrable_domain(host)
     is_public_ats = any(
         _domain_matches(host, ats_domain) for ats_domain in PUBLIC_ATS_DOMAINS
@@ -131,6 +134,28 @@ def _looks_like_auth_or_captcha(parsed) -> bool:
         key.lower() for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
     }
     return bool(path_segments & AUTH_TERMS or query_keys & AUTH_TERMS)
+
+
+def _is_blocked_fetch_host(host: str) -> bool:
+    normalized = host.strip().lower().strip(".")
+    if not normalized:
+        return True
+    if normalized in {"localhost", "metadata", "metadata.google.internal"}:
+        return True
+    if normalized.endswith(".localhost") or normalized.endswith(".local"):
+        return True
+    candidate = normalized.strip("[]")
+    try:
+        address = ipaddress.ip_address(candidate)
+    except ValueError:
+        return False
+    return (
+        address.is_private
+        or address.is_loopback
+        or address.is_link_local
+        or address.is_reserved
+        or address.is_multicast
+    )
 
 
 def _looks_like_search_proxy(parsed) -> bool:
