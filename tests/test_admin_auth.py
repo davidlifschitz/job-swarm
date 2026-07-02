@@ -23,3 +23,28 @@ def test_html_admin_open_in_local_mode(tmp_path):
 
     response = client.get("/admin/sources")
     assert response.status_code == 200
+
+
+def test_sources_new_denies_non_admin_when_supabase_enabled(tmp_path, admin_auth_env):
+    client = TestClient(create_app(tmp_path / "sources-new-deny.db"))
+
+    denied = client.get("/sources/new", headers=auth_headers("regular-user"))
+    assert denied.status_code == 403
+
+
+def test_sources_new_allows_allowlisted_user(tmp_path, admin_auth_env):
+    client = TestClient(create_app(tmp_path / "sources-new-allow.db"))
+
+    allowed = client.get("/sources/new", headers=auth_headers("admin-user"))
+    assert allowed.status_code == 200
+
+
+def test_sources_new_post_denies_non_admin_when_supabase_enabled(tmp_path, admin_auth_env):
+    client = TestClient(create_app(tmp_path / "sources-new-post-deny.db"))
+
+    denied = client.post(
+        "/sources/new",
+        data={"careers_url": "https://jobs.lever.co/example"},
+        headers=auth_headers("regular-user"),
+    )
+    assert denied.status_code == 403

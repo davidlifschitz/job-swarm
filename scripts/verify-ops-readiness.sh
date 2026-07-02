@@ -37,13 +37,26 @@ uv run python scripts/run-cloud-load-test.py
 
 echo "==> Offline seed refresh audit"
 AUDIT_DB="$(mktemp /tmp/seed-audit-XXXXXX.db)"
-trap 'rm -f "${AUDIT_DB}"' EXIT
-uv run python scripts/seed_refresh_audit.py --db "${AUDIT_DB}"
+SUBSET_SEED="$(mktemp /tmp/seed-audit-subset-XXXXXX.json)"
+trap 'rm -f "${AUDIT_DB}" "${SUBSET_SEED}"' EXIT
+uv run python - <<PY
+from pathlib import Path
+import importlib.util
+
+spec = importlib.util.spec_from_file_location(
+    "seed_refresh_audit",
+    "${ROOT_DIR}/scripts/seed_refresh_audit.py",
+)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+module.write_fixture_seed_subset(Path("${SUBSET_SEED}"))
+PY
+uv run python scripts/seed_refresh_audit.py --db "${AUDIT_DB}" --seed "${SUBSET_SEED}"
 
 echo "==> Railway cutover dry-run (temp SQLite export)"
 CUTover_DB="$(mktemp /tmp/cutover-dry-run-XXXXXX.db)"
 CUTover_RESUME="$(mktemp -d /tmp/cutover-resume-XXXXXX)"
-trap 'rm -f "${AUDIT_DB}"; rm -f "${CUTover_DB}"; rm -rf "${CUTover_RESUME}"' EXIT
+trap 'rm -f "${AUDIT_DB}" "${SUBSET_SEED}"; rm -f "${CUTover_DB}"; rm -rf "${CUTover_RESUME}"' EXIT
 uv run python - <<PY
 from pathlib import Path
 from tests.test_hosted_migration import _seed_sqlite

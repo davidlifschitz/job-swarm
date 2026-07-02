@@ -205,10 +205,20 @@ Cron-friendly public ATS refresh:
 uv run ml-job-swarm refresh --public-ats --db jobs.db --seed data/seed_companies.json
 ```
 
+On hosted Postgres (`DATABASE_URL`), use the same CLI against the remote database
+for cron refresh; catalog import from legacy SQLite (`import_job_catalog`) is
+SQLite-only and returns `postgres_unsupported` on Postgres backends.
+
 Public refresh uses reviewed seed sources, source-policy checks, and the built-in
 public ATS adapters. Unsupported reviewed source types are skipped and reported
-as `sources_skipped`. If a supported source fails, the command records source
-friction and exits nonzero so a cron runner can alert on catalog drift.
+as `sources_skipped`. If a supported source fails, returns suspicious-empty
+results, or is blocked by policy, the command records source friction and exits
+nonzero so a cron runner can alert on catalog drift.
+
+Matching and fit review run through `/api/v1/dashboard/find-matches`,
+`/api/v1/dashboard/review-jobs`, and the macOS app's equivalent actions. Fit review
+uses resilient per-job batching: partial LLM failures surface `failures` and
+sanitized `failure_messages` without aborting the whole run.
 
 Deterministic fixture refresh for tests and local development:
 

@@ -343,9 +343,9 @@ public struct APIClient: Sendable {
         return try await postJSON(path: "/api/v1/dashboard/find-matches", body: body)
     }
 
-    public func reviewJobs(targetProfileID: Int, llmConsent: Bool) async throws {
+    public func reviewJobs(targetProfileID: Int, llmConsent: Bool) async throws -> ReviewJobsResponse {
         let body = FindMatchesBody(targetProfileID: targetProfileID, llmConsent: llmConsent)
-        _ = try await postJSON(path: "/api/v1/dashboard/review-jobs", body: body) as StatusResponse
+        return try await postJSON(path: "/api/v1/dashboard/review-jobs", body: body)
     }
 
     public func importConnections(fileURL: URL) async throws -> ImportConnectionsResponse {

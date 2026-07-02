@@ -341,8 +341,8 @@ def create_api_v1_router(
     router = APIRouter(prefix="/api/v1", tags=["api-v1"])
 
     @router.get("/llm/usage")
-    def llm_usage() -> dict[str, object]:
-        return llm_usage_summary(conn)
+    def llm_usage(request: Request) -> dict[str, object]:
+        return llm_usage_summary(conn, user_id=get_authenticated_user_id(request))
 
     @router.get("/health")
     def health(request: Request) -> dict[str, object]:
@@ -1044,14 +1044,14 @@ def create_api_v1_router(
                 detail="LLM consent is required for fit review",
             )
         try:
-            review_jobs_for_profile(
+            review = review_jobs_for_profile_resilient(
                 conn,
                 payload.target_profile_id,
                 fit_gate_client,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
-        return {"status": "ok"}
+        return {"status": "ok", "review": _serialize(review)}
 
     @router.get("/connections")
     def connections(request: Request, search: str = "") -> dict[str, object]:

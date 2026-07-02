@@ -218,7 +218,7 @@ def test_refresh_command_reports_suspicious_empty_sources(
         ]
     )
 
-    assert exit_code == 0
+    assert exit_code == 1
     summary = json.loads(capsys.readouterr().out)
     assert summary["failures"] == 0
     assert summary["friction_events"] == {"empty_suspicious": 1}

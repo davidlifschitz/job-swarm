@@ -96,6 +96,12 @@ def evaluate_product_metrics(metrics: Mapping[str, object]) -> list[str]:
             f"{success_rate:.4f} is below target {target_success_rate:.4f}."
         )
 
+    visible_failure_reasons = source_refresh.get("sources_have_visible_failure_reasons")
+    if visible_failure_reasons is False:
+        violations.append(
+            "Supported source failures are missing visible failure reasons."
+        )
+
     application_packets = _metric_section(metrics, "application_packets")
     prepared_packet_rate = _metric_float(application_packets.get("prepared_packet_rate"))
     target_prepared_packet_rate = _metric_float(
@@ -133,6 +139,28 @@ def evaluate_product_metrics(metrics: Mapping[str, object]) -> list[str]:
     if jobs_seen is not None and jobs_seen < target_jobs_seen_min:
         violations.append(
             f"Catalog jobs_seen {jobs_seen} is below target minimum {target_jobs_seen_min}."
+        )
+
+    duplicate_rate = _metric_float(catalog.get("duplicate_rate"))
+    target_duplicate_rate_max = _metric_float(
+        catalog.get("target_duplicate_rate_max"),
+        default=0.02,
+    )
+    if (
+        duplicate_rate is not None
+        and target_duplicate_rate_max is not None
+        and duplicate_rate > target_duplicate_rate_max
+    ):
+        violations.append(
+            "Catalog duplicate rate "
+            f"{duplicate_rate:.4f} exceeds target maximum {target_duplicate_rate_max:.4f}."
+        )
+
+    stale_closed_visible_count = _metric_int(catalog.get("stale_closed_visible_count"))
+    if stale_closed_visible_count is not None and stale_closed_visible_count > 0:
+        violations.append(
+            "Catalog has "
+            f"{stale_closed_visible_count} stale closed job(s) still visible past the cutoff."
         )
 
     first_run = _metric_section(metrics, "first_run")

@@ -22,6 +22,22 @@ _NON_ALNUM = re.compile(r"[^a-z0-9 ]")
 _WS = re.compile(r"\s+")
 
 
+from urllib.parse import urlsplit
+
+
+def sanitize_profile_url(url: str) -> str:
+    normalized = (url or "").strip()
+    if not normalized:
+        return ""
+    lowered = normalized.casefold()
+    if lowered.startswith(("javascript:", "data:", "vbscript:")):
+        return ""
+    parsed = urlsplit(normalized)
+    if parsed.scheme and parsed.scheme.casefold() not in {"http", "https"}:
+        return ""
+    return normalized
+
+
 @dataclass(frozen=True)
 class LinkedInConnection:
     first_name: str
@@ -81,7 +97,7 @@ def parse_linkedin_connections_csv(text: str) -> list[LinkedInConnection]:
         }
         first_name = row.get("First Name", "").strip()
         last_name = row.get("Last Name", "").strip()
-        profile_url = row.get("URL", "").strip()
+        profile_url = sanitize_profile_url(row.get("URL", "").strip())
         if not first_name and not last_name:
             continue
         connections.append(

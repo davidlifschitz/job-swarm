@@ -26,7 +26,7 @@ class FakeLeverAdapter:
 def test_cloud_worker_refreshes_matches_prepares_packet_and_stops_for_manual_submit(tmp_path):
     conn = connect(tmp_path / "cloud-worker.db")
     init_db(conn)
-    source_id, profile_id = _seed_cloud_ready_catalog(conn)
+    source_id, profile_id = _seed_cloud_ready_catalog(conn, saved_packet_candidate=True)
     run = create_run(
         conn,
         user_id="operator-1",
@@ -111,7 +111,64 @@ def test_cloud_worker_marks_run_failed_with_diagnostic_event(tmp_path):
     assert list_run_events(conn, result["run_id"])[-1]["event_type"] == "run_failed"
 
 
-def _seed_cloud_ready_catalog(conn):
+def test_cloud_worker_records_llm_skipped_when_client_missing(tmp_path):
+    conn = connect(tmp_path / "cloud-worker-llm-skipped.db")
+    init_db(conn)
+    source_id, profile_id = _seed_cloud_ready_catalog(conn)
+    create_run(
+        conn,
+        user_id="operator-1",
+        requested_action="continue_local_workflow",
+        input_manifest={
+            "source_ids": [source_id],
+            "target_profile_id": profile_id,
+            "review_jobs_with_llm": True,
+        },
+        environment_class="cloud",
+    )
+
+    result = run_cloud_workflow_once(
+        conn,
+        adapter_registry=AdapterRegistry({"lever": FakeLeverAdapter()}),
+        fit_gate_client=None,
+    )
+
+    updated = get_run(conn, result["run_id"])
+    matching = updated["output_manifest"]["matching"]
+    assert matching["mode"] == "llm_skipped"
+    assert matching["reason"] == "fit_gate_client_unavailable"
+    assert matching["failures"] == 0
+
+
+def test_cloud_worker_packet_candidates_require_saved_decision(tmp_path):
+    conn = connect(tmp_path / "cloud-worker-saved-only.db")
+    init_db(conn)
+    source_id, profile_id = _seed_cloud_ready_catalog(conn)
+    create_run(
+        conn,
+        user_id="operator-1",
+        requested_action="continue_local_workflow",
+        input_manifest={
+            "source_ids": [source_id],
+            "target_profile_id": profile_id,
+            "prepare_packets": True,
+            "max_packets": 1,
+        },
+        environment_class="cloud",
+    )
+
+    result = run_cloud_workflow_once(
+        conn,
+        adapter_registry=AdapterRegistry({"lever": FakeLeverAdapter()}),
+    )
+
+    updated = get_run(conn, result["run_id"])
+    assert result["status"] == "completed"
+    assert updated["output_manifest"].get("prepared_packets") in (None, [])
+    assert conn.execute("SELECT COUNT(*) AS count FROM application_packets").fetchone()["count"] == 0
+
+
+def _seed_cloud_ready_catalog(conn, *, saved_packet_candidate: bool = False):
     company_id = conn.execute(
         """
         INSERT INTO companies (name, normalized_name, ats_type, source_quality)
@@ -166,5 +223,37 @@ def _seed_cloud_ready_catalog(conn):
             json.dumps(["remote"]),
         ),
     ).fetchone()["id"]
+    job_id = conn.execute(
+        """
+        INSERT INTO jobs (
+          company_id,
+          job_source_id,
+          external_id,
+          title,
+          location_text,
+          remote_mode,
+          seniority,
+          description_text,
+          requirements_text,
+          apply_url,
+          source_url,
+          content_hash,
+          status
+        )
+        VALUES (?, ?, 'ml-1', 'Senior Machine Learning Engineer', 'Remote', 'remote', 'senior',
+                'Build ML systems.', 'Python.', 'https://jobs.lever.co/acme/ml-1/apply',
+                'https://jobs.lever.co/acme', 'cloud-worker-hash', 'open')
+        RETURNING id
+        """,
+        (company_id, source_id),
+    ).fetchone()["id"]
+    if saved_packet_candidate:
+        conn.execute(
+            """
+            INSERT INTO job_decisions (job_id, target_profile_id, decision, notes)
+            VALUES (?, ?, 'saved', 'cloud worker packet candidate')
+            """,
+            (job_id, profile_id),
+        )
     conn.commit()
     return source_id, profile_id

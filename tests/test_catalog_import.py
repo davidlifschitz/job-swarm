@@ -64,3 +64,18 @@ def test_import_job_catalog_skips_when_destination_has_jobs(tmp_path: Path):
 
     assert summary["status"] == "skipped"
     assert summary["reason"] == "destination_has_jobs"
+
+
+def test_import_job_catalog_skips_on_postgres(tmp_path):
+    legacy = tmp_path / "legacy.db"
+    _seed_legacy_db(legacy)
+
+    from ml_job_swarm.db.postgres_backend import PostgresDatabase
+
+    summary = import_job_catalog(PostgresDatabase(connection=None), legacy)
+
+    assert summary == {
+        "status": "skipped",
+        "reason": "postgres_unsupported",
+        "path": str(legacy),
+    }

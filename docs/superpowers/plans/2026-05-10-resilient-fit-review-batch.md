@@ -21,21 +21,21 @@ tests.
 - Modify: `tests/test_fit_review.py`
 - Modify: `tests/test_routes_dashboard.py`
 
-- [ ] Add a filtering test where the first job's fit review raises and the
+- [x] Add a filtering test where the first job's fit review raises and the
       second job succeeds.
-- [ ] Add a first-run route test where one reviewed job fails and another is
+- [x] Add a first-run route test where one reviewed job fails and another is
       displayed.
-- [ ] Run focused tests and confirm they fail before implementation.
+- [x] Run focused tests and confirm they fail before implementation.
 
 ### Task 2: Resilient Batch Function
 
 **Files:**
 - Modify: `ml_job_swarm/filtering.py`
 
-- [ ] Add a `ProfileReviewBatchResult` dataclass.
-- [ ] Extract candidate job-id query reuse.
-- [ ] Add resilient batch review that catches per-job exceptions and continues.
-- [ ] Preserve strict `review_jobs_for_profile()` behavior.
+- [x] Add a `ProfileReviewBatchResult` dataclass.
+- [x] Extract candidate job-id query reuse.
+- [x] Add resilient batch review that catches per-job exceptions and continues.
+- [x] Preserve strict `review_jobs_for_profile()` behavior.
 
 ### Task 3: First-Run Route Counts
 

@@ -343,3 +343,20 @@ def test_openrouter_default_transport_does_not_retry_http_error(monkeypatch):
         )
 
     assert len(seen_requests) == 1
+
+
+def test_openrouter_rejects_non_https_base_url():
+    with pytest.raises(OpenRouterClientError, match="https URL"):
+        openrouter._validated_openrouter_base_url("http://openrouter.ai/api/v1")
+
+
+def test_openrouter_rejects_disallowed_host():
+    with pytest.raises(OpenRouterClientError, match="host is not allowed"):
+        openrouter._validated_openrouter_base_url("https://evil.example/api/v1")
+
+
+def test_openrouter_allows_default_host():
+    assert (
+        openrouter._validated_openrouter_base_url("https://openrouter.ai/api/v1")
+        == "https://openrouter.ai/api/v1"
+    )

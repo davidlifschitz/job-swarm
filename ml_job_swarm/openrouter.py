@@ -33,7 +33,9 @@ def configure_openrouter_clients_from_env(
     if not api_key:
         return
 
-    base_url = (env.get("OPENROUTER_BASE_URL") or OPENROUTER_CHAT_COMPLETIONS_URL).strip()
+    base_url = _validated_openrouter_base_url(
+        (env.get("OPENROUTER_BASE_URL") or OPENROUTER_CHAT_COMPLETIONS_URL).strip()
+    )
     http_referer = _optional_env(env, "OPENROUTER_HTTP_REFERER")
     app_title = _optional_env(env, "OPENROUTER_APP_TITLE")
     fit_model = _model_env(env, "OPENROUTER_FIT_MODEL")
@@ -301,3 +303,16 @@ def _optional_env(env: Mapping[str, str], key: str) -> str | None:
 
 def _model_env(env: Mapping[str, str], key: str) -> str:
     return (env.get(key) or DEFAULT_OPENROUTER_MODEL).strip() or DEFAULT_OPENROUTER_MODEL
+
+
+def _validated_openrouter_base_url(base_url: str) -> str:
+    from urllib.parse import urlsplit
+
+    parsed = urlsplit(base_url)
+    if parsed.scheme != "https" or not parsed.netloc:
+        raise OpenRouterClientError("OPENROUTER_BASE_URL must be an https URL")
+    host = (parsed.hostname or "").lower()
+    allowed_hosts = {"openrouter.ai", "api.openrouter.ai"}
+    if not any(host == allowed or host.endswith(f".{allowed}") for allowed in allowed_hosts):
+        raise OpenRouterClientError("OPENROUTER_BASE_URL host is not allowed")
+    return base_url

@@ -382,10 +382,6 @@ def infer_source_type(source_url: str) -> str:
     return "careers"
 
 
-def _infer_source_type(source_url: str) -> str:
-    return infer_source_type(source_url)
-
-
 def _parse_seed_company(item: dict[str, Any]) -> SeedCompany:
     required = {
         "name",

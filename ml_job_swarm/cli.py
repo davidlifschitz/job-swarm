@@ -170,7 +170,9 @@ def _refresh(args: argparse.Namespace) -> int:
         "sources_skipped": skipped,
     }
     print(json.dumps(payload, sort_keys=True))
-    return 1 if summary.failures else 0
+    if summary.failures or summary.blocked or summary.suspicious_empty:
+        return 1
+    return 0
 
 
 def _fixture_registry(fixture_dir: Path) -> AdapterRegistry:

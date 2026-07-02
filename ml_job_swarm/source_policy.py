@@ -155,7 +155,22 @@ def _is_blocked_fetch_host(host: str) -> bool:
         or address.is_link_local
         or address.is_reserved
         or address.is_multicast
+        or address.is_unspecified
     )
+
+
+MAX_FETCH_RESPONSE_BYTES = 5 * 1024 * 1024
+
+
+def assert_safe_fetch_url(url: str) -> str:
+    normalized = _normalize_url(url)
+    if normalized is None:
+        raise ValueError("invalid fetch URL")
+    parsed = urlsplit(normalized)
+    host = parsed.hostname or ""
+    if _is_blocked_fetch_host(host):
+        raise ValueError("blocked fetch host")
+    return normalized
 
 
 def _looks_like_search_proxy(parsed) -> bool:

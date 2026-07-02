@@ -88,3 +88,42 @@ def test_postgres_refresh_source_records_jobs_and_snapshots(postgres_conn):
     assert run["jobs_seen"] == 1
     assert conn.execute("SELECT COUNT(*) AS count FROM jobs").fetchone()["count"] == 1
     assert conn.execute("SELECT COUNT(*) AS count FROM job_snapshots").fetchone()["count"] == 1
+
+
+def test_postgres_refresh_due_sources_summarizes_fixture_adapters(postgres_conn, monkeypatch):
+    conn, source_id = postgres_conn
+    from ml_job_swarm.ingest import refresh_due_sources
+
+    class FakeAdapter:
+        def fetch_jobs(self, source):
+            return [
+                RawJob(
+                    external_id="pg-due-1",
+                    title="Postgres Due ML Engineer",
+                    department="Engineering",
+                    location_text="Remote",
+                    remote_mode="remote",
+                    employment_type="full_time",
+                    seniority="senior",
+                    description_text="Build models",
+                    requirements_text="Python",
+                    apply_url="https://boards.greenhouse.io/example/jobs/pg-due-1",
+                    source_url="https://boards.greenhouse.io/example/jobs/pg-due-1",
+                )
+            ]
+
+    conn.execute(
+        """
+        UPDATE job_sources
+        SET last_refreshed_at = NULL, review_status = 'reviewed', policy_mode = 'allowed'
+        WHERE id = ?
+        """,
+        (source_id,),
+    )
+    conn.commit()
+
+    summary = refresh_due_sources(conn, AdapterRegistry({"greenhouse": FakeAdapter()}))
+
+    assert summary.sources_attempted >= 1
+    assert summary.sources_succeeded >= 1
+    assert summary.jobs_seen >= 1

@@ -250,6 +250,8 @@ def refresh_due_sources(
             adapter = adapter_registry.adapter_for(row["source_type"])
             result = refresh_source(conn, row["id"], adapter)
         except Exception as exc:
+            from ml_job_swarm.error_sanitize import sanitize_error_message
+
             source = _load_source(conn, row["id"])
             run_id = _start_run(conn, source_count=1)
             event_type = (
@@ -257,16 +259,17 @@ def refresh_due_sources(
                 if isinstance(exc, RefreshError)
                 else "manual_review_needed"
             )
+            error_message = sanitize_error_message(exc)
             _record_friction(
                 conn,
                 source=source,
                 run_id=run_id,
                 event_type=event_type,
                 url=source.url,
-                details=_failure_details(exc),
+                details={"error": error_message},
                 status_code=exc.status_code if isinstance(exc, RefreshError) else None,
             )
-            _finish_run(conn, run_id, status="failed", error=str(exc))
+            _finish_run(conn, run_id, status="failed", error=error_message)
             result = RefreshResult(source.id, run_id, "failed")
 
         sources_attempted += 1

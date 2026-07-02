@@ -456,29 +456,89 @@ public struct MatchRunSummary: Sendable {
     public let lines: [String]
 }
 
+private func jsonIntValue(_ key: String, in source: [String: JSONValue]) -> Int {
+    guard let value = source[key] else { return 0 }
+    if case .int(let number) = value { return number }
+    if case .double(let number) = value { return Int(number) }
+    return 0
+}
+
+private func jsonStringValues(_ key: String, in source: [String: JSONValue]) -> [String] {
+    guard let value = source[key] else { return [] }
+    if case .array(let items) = value {
+        return items.compactMap { item in
+            if case .string(let text) = item { return text }
+            return nil
+        }
+    }
+    return []
+}
+
+private func matchRunSummaryLines(
+    refreshSummary: [String: JSONValue]?,
+    review: [String: JSONValue]?
+) -> [String] {
+    var lines: [String] = []
+    if let refreshSummary {
+        lines.append("Sources attempted: \(jsonIntValue("sources_attempted", in: refreshSummary))")
+        lines.append("Sources succeeded: \(jsonIntValue("sources_succeeded", in: refreshSummary))")
+        lines.append("Jobs seen: \(jsonIntValue("jobs_seen", in: refreshSummary))")
+        lines.append("Jobs closed: \(jsonIntValue("jobs_closed", in: refreshSummary))")
+    }
+    if let review {
+        let reviewsCreated: Int = {
+            if case .array(let ids) = review["review_ids"] { return ids.count }
+            return jsonIntValue("reviews_created", in: review)
+        }()
+        lines.append("Reviews created: \(reviewsCreated)")
+        let refreshFailures = refreshSummary.map { jsonIntValue("failures", in: $0) } ?? 0
+        let reviewFailures = jsonIntValue("failures", in: review)
+        lines.append("Failures: \(max(refreshFailures, reviewFailures))")
+        let failureMessages = jsonStringValues("failure_messages", in: review)
+        if !failureMessages.isEmpty {
+            lines.append("Failure details: \(failureMessages.joined(separator: "; "))")
+        }
+    } else if let refreshSummary {
+        lines.append("Reviews created: 0")
+        lines.append("Failures: \(jsonIntValue("failures", in: refreshSummary))")
+    }
+    return lines
+}
+
 extension FindMatchesResponse {
     public var runSummary: MatchRunSummary? {
-        guard let fields = refreshSummary else { return nil }
-        func intValue(_ key: String, in source: [String: JSONValue]) -> Int {
-            guard let value = source[key] else { return 0 }
-            if case .int(let number) = value { return number }
-            if case .double(let number) = value { return Int(number) }
-            return 0
+        guard refreshSummary != nil || review != nil else { return nil }
+        let title: String
+        if status == "refresh_only" {
+            title = "Catalog refresh"
+        } else if refreshSummary == nil {
+            title = "Fit review"
+        } else {
+            title = "Match run"
         }
-        let reviewsCreated: Int = {
-            guard let review else { return 0 }
-            if case .array(let ids) = review["review_ids"] { return ids.count }
-            return intValue("reviews_created", in: review)
-        }()
-        let lines = [
-            "Sources attempted: \(intValue("sources_attempted", in: fields))",
-            "Sources succeeded: \(intValue("sources_succeeded", in: fields))",
-            "Jobs seen: \(intValue("jobs_seen", in: fields))",
-            "Jobs closed: \(intValue("jobs_closed", in: fields))",
-            "Reviews created: \(reviewsCreated)",
-            "Failures: \(intValue("failures", in: fields))",
-        ]
-        return MatchRunSummary(title: status == "refresh_only" ? "Catalog refresh" : "Match run", lines: lines)
+        return MatchRunSummary(
+            title: title,
+            lines: matchRunSummaryLines(refreshSummary: refreshSummary, review: review)
+        )
+    }
+}
+
+public struct ReviewJobsResponse: Codable, Sendable {
+    public let status: String
+    public let review: [String: JSONValue]?
+
+    enum CodingKeys: String, CodingKey {
+        case status, review
+    }
+}
+
+extension ReviewJobsResponse {
+    public var runSummary: MatchRunSummary? {
+        guard let review else { return nil }
+        return MatchRunSummary(
+            title: "Fit review",
+            lines: matchRunSummaryLines(refreshSummary: nil, review: review)
+        )
     }
 }
 
