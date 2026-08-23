@@ -24,6 +24,8 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: uv sync --frozen
+      - name: Install Playwright Chromium
+        run: uv run --with playwright playwright install --with-deps chromium
       - name: Prepare test database directory
         run: mkdir -p /tmp/ml-job-swarm
       - name: Run live browser smoke
@@ -32,3 +34,11 @@ jobs:
           uv run --with uvicorn --with playwright python scripts/live_e2e_smoke.py \
             --artifact-dir /tmp/ml-job-swarm-artifacts \
             --browser-timeout-ms 120000
+      - name: Upload browser smoke artifacts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-browser-e2e-${{ github.run_id }}
+          path: /tmp/ml-job-swarm-artifacts
+          if-no-files-found: warn
+          retention-days: 7
