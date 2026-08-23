@@ -29,7 +29,7 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
       - name: Install Playwright Chromium
-        run: uv run --with playwright playwright install --with-deps chromium
+        run: uv run --with playwright python -m playwright install --with-deps chromium
       - name: Prepare test database directory
         run: mkdir -p /tmp/ml-job-swarm
       - name: Run live browser smoke
