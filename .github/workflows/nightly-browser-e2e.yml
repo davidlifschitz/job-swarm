@@ -1,6 +1,10 @@
 name: nightly-browser-e2e
 
 on:
+  push:
+    paths:
+      - ".github/workflows/nightly-browser-e2e.yml"
+      - "scripts/live_e2e_smoke.py"
   schedule:
     - cron: "0 6 * * *"
   workflow_dispatch:
