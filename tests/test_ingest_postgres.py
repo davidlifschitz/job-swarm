@@ -4,7 +4,7 @@ import pytest
 
 from ml_job_swarm.db.factory import connect_from_env
 from ml_job_swarm.db.postgres_backend import PostgresDatabase
-from ml_job_swarm.ingest import RawJob, refresh_source
+from ml_job_swarm.ingest import AdapterRegistry, RawJob, refresh_source
 from ml_job_swarm.store import init_db
 
 POSTGRES_URL = os.environ.get("ML_JOB_SWARM_TEST_DATABASE_URL", "")
@@ -90,7 +90,7 @@ def test_postgres_refresh_source_records_jobs_and_snapshots(postgres_conn):
     assert conn.execute("SELECT COUNT(*) AS count FROM job_snapshots").fetchone()["count"] == 1
 
 
-def test_postgres_refresh_due_sources_summarizes_fixture_adapters(postgres_conn, monkeypatch):
+def test_postgres_refresh_due_sources_summarizes_fixture_adapters(postgres_conn):
     conn, source_id = postgres_conn
     from ml_job_swarm.ingest import refresh_due_sources
 
@@ -115,7 +115,7 @@ def test_postgres_refresh_due_sources_summarizes_fixture_adapters(postgres_conn,
     conn.execute(
         """
         UPDATE job_sources
-        SET last_refreshed_at = NULL, review_status = 'reviewed', policy_mode = 'allowed'
+        SET last_checked_at = NULL, review_status = 'reviewed', policy_mode = 'allowed'
         WHERE id = ?
         """,
         (source_id,),
@@ -124,6 +124,10 @@ def test_postgres_refresh_due_sources_summarizes_fixture_adapters(postgres_conn,
 
     summary = refresh_due_sources(conn, AdapterRegistry({"greenhouse": FakeAdapter()}))
 
-    assert summary.sources_attempted >= 1
-    assert summary.sources_succeeded >= 1
-    assert summary.jobs_seen >= 1
+    assert summary.sources_attempted == 1
+    assert summary.sources_succeeded == 1
+    assert summary.jobs_seen == 1
+    assert summary.failures == 0
+    assert conn.execute(
+        "SELECT last_checked_at FROM job_sources WHERE id = ?", (source_id,),
+    ).fetchone()["last_checked_at"] is not None
