@@ -780,12 +780,13 @@ def _resume_keywords(conn: sqlite3.Connection, resume_asset_id: int | None) -> l
         return []
     rows = conn.execute(
         """
-        SELECT DISTINCT resume_keywords.keyword
+        SELECT resume_keywords.keyword
         FROM resume_keywords
         JOIN resume_parse_runs
           ON resume_parse_runs.id = resume_keywords.parse_run_id
         WHERE resume_parse_runs.resume_asset_id = ?
-        ORDER BY resume_keywords.weight DESC, resume_keywords.keyword
+        GROUP BY resume_keywords.keyword
+        ORDER BY MAX(resume_keywords.weight) DESC, resume_keywords.keyword
         """,
         (resume_asset_id,),
     ).fetchall()
