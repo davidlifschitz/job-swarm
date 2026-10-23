@@ -3,6 +3,7 @@ from __future__ import annotations
 import html
 import json
 import re
+from functools import partial
 from typing import Any, Callable
 from urllib.error import HTTPError
 from urllib.parse import quote, urlencode, urljoin, urlsplit
@@ -25,6 +26,10 @@ from ml_job_swarm.source_policy import (
 JsonFetcher = Callable[[str], Any]
 JsonPostFetcher = Callable[[str, dict[str, object]], Any]
 TextFetcher = Callable[[str], str]
+# Greenhouse's unpaginated content=true listing includes every full description.
+# Anthropic's valid board exceeded 9 MiB; keep a finite, provider-specific bound
+# without increasing the 5 MiB allowance for arbitrary careers pages/other ATSs.
+MAX_GREENHOUSE_BOARD_RESPONSE_BYTES = 32 * 1024 * 1024
 _CAREERS_PATH_MARKERS = {
     "career",
     "career-openings",
@@ -86,7 +91,10 @@ _JOB_INDEX_PATH_SEGMENTS = {
 
 class GreenhouseAdapter:
     def __init__(self, fetch_json: JsonFetcher | None = None):
-        self._fetch_json = fetch_json or _default_fetch_json
+        self._fetch_json = fetch_json or partial(
+            _default_fetch_json,
+            max_response_bytes=MAX_GREENHOUSE_BOARD_RESPONSE_BYTES,
+        )
 
     def fetch_jobs(self, source: JobSource) -> list[RawJob]:
         board_token = _greenhouse_board_token(source.url)
@@ -358,7 +366,9 @@ def _default_careers_provider_adapters() -> dict[str, JobSourceAdapter]:
     }
 
 
-def _default_fetch_json(url: str) -> Any:
+def _default_fetch_json(
+    url: str, *, max_response_bytes: int = MAX_FETCH_RESPONSE_BYTES,
+) -> Any:
     request = Request(
         url,
         headers={
@@ -367,7 +377,7 @@ def _default_fetch_json(url: str) -> Any:
         },
     )
     try:
-        raw, charset = _read_url_request(request)
+        raw, charset = _read_url_request(request, max_response_bytes=max_response_bytes)
         return json.loads(raw.decode(charset))
     except HTTPError as exc:
         raise RefreshError(
@@ -435,6 +445,7 @@ def _read_url_request(
     *,
     timeout: int = 20,
     retries: int = 1,
+    max_response_bytes: int = MAX_FETCH_RESPONSE_BYTES,
 ) -> tuple[bytes, str]:
     assert_safe_fetch_url(request.full_url)
     attempts = retries + 1
@@ -450,7 +461,7 @@ def _read_url_request(
                     if not chunk:
                         break
                     total += len(chunk)
-                    if total > MAX_FETCH_RESPONSE_BYTES:
+                    if total > max_response_bytes:
                         raise RefreshError(
                             "Public ATS fetch response too large",
                             "blocked_response",
