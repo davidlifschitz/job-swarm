@@ -229,6 +229,18 @@ uv run ml-job-swarm refresh --db jobs.db --seed data/seed_companies.json --fixtu
 Fixture refresh skips reviewed source types that do not have a matching
 `<source_type>_jobs.json` file and reports `sources_skipped`.
 
+Deterministic browser regression (also runs on pull requests):
+
+```bash
+uv run --with playwright python -m playwright install --with-deps chromium
+uv run --with playwright pytest -q tests/test_browser_e2e.py
+```
+
+This exercises the real browser, routes, Greenhouse parser, bounded reader,
+database, save decision, and packet preparation. Only outbound ATS HTTP is
+replaced with a valid 400-job board larger than 5 MiB. Ordinary `uv run pytest`
+skips this test when Playwright is absent; the browser workflow installs it.
+
 Live no-credentials browser smoke against a temporary DB and one public
 Anthropic Greenhouse seed:
 
@@ -241,6 +253,19 @@ public source data, saves a no-LLM job, and prepares a local manual-submit
 packet. It prints progress and the artifact directory to stderr, writes
 screenshots plus `uvicorn.log` to that directory, and never submits an external
 application.
+
+The nightly/dispatch workflow retains this live check as a separate step;
+pull requests run the deterministic check without depending on a public service.
+A live-only failure needs inspection of `browser.db` (`ingestion_runs.error`
+and `source_friction_events`) and `uvicorn.log` before attribution to an outage.
+Run [39591693867](https://github.com/davidlifschitz/job-swarm/actions/runs/39591693867)
+failed because a valid Greenhouse full-content listing exceeded the generic
+5 MiB response cap introduced in
+[`c057428`](https://github.com/davidlifschitz/job-swarm/commit/c0574282cdc5fee7c294613b652eea5d3be42e29).
+[Greenhouse documents full-content bulk listings](https://docs.greenhouse.io/job-board.html#list-jobs).
+Greenhouse bulk listings now have a
+32 MiB cap; other fetches retain 5 MiB. Neither failed refreshes nor their strict
+browser assertions are suppressed. Larger boards can still reach the new bound.
 
 V1 does not scrape LinkedIn or Indeed, bypass CAPTCHA/login flows, use hidden
 browser sessions, or submit applications. The macOS app uses HTTP adapters for

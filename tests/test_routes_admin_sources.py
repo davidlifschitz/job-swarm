@@ -1026,8 +1026,9 @@ def test_admin_refresh_sources_reports_closed_jobs():
 def test_admin_refresh_sources_uses_default_public_ats_registry(monkeypatch):
     from ml_job_swarm import adapters
 
-    def fetch_json(url):
+    def fetch_json(url, *, max_response_bytes):
         assert url == "https://boards-api.greenhouse.io/v1/boards/example/jobs?content=true"
+        assert max_response_bytes == 32 * 1024 * 1024
         return {
             "jobs": [
                 {

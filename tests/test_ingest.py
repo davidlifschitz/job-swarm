@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ml_job_swarm.adapters import CareersJsonLdAdapter
+from ml_job_swarm.adapters import CareersJsonLdAdapter, GreenhouseAdapter
 from ml_job_swarm.ingest import (
     AdapterRegistry,
     RawJob,
@@ -15,6 +15,47 @@ from ml_job_swarm.store import connect, init_db
 
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def test_greenhouse_bulk_refresh_preserves_all_jobs_and_descriptions(greenhouse_bulk_response):
+    conn = _db_with_source(source_type="greenhouse")
+    result = refresh_source(conn, _source_id(conn), GreenhouseAdapter())
+
+    assert result.status == "succeeded"
+    assert result.jobs_seen == 400
+    assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 400
+    assert conn.execute("SELECT COUNT(*) FROM job_snapshots").fetchone()[0] == 400
+    row = conn.execute("SELECT description_text, department FROM jobs LIMIT 1").fetchone()
+    assert row["description_text"].endswith("Public job description.")
+    assert len(row["description_text"]) > 16000
+    assert row["department"] == "Engineering"
+    assert conn.execute("SELECT status FROM ingestion_runs").fetchone()[0] == "succeeded"
+    assert conn.execute("SELECT COUNT(*) FROM source_friction_events").fetchone()[0] == 0
+
+
+def test_greenhouse_oversize_failure_keeps_existing_catalog(
+    greenhouse_bulk_response, monkeypatch,
+):
+    from ml_job_swarm import adapters
+
+    conn = _db_with_source(source_type="greenhouse")
+    source_id = _source_id(conn)
+    refresh_source(conn, source_id, FakeAdapter([_job("existing", "Existing Job")]))
+    monkeypatch.setattr(
+        adapters, "MAX_GREENHOUSE_BOARD_RESPONSE_BYTES", len(greenhouse_bulk_response) - 1,
+    )
+
+    result = refresh_source(conn, source_id, GreenhouseAdapter())
+
+    assert result.status == "failed"
+    assert result.jobs_seen == 0
+    jobs = conn.execute("SELECT external_id, status FROM jobs").fetchall()
+    assert [(row["external_id"], row["status"]) for row in jobs] == [("existing", "open")]
+    run = conn.execute("SELECT status, error FROM ingestion_runs ORDER BY id DESC").fetchone()
+    assert run["status"] == "failed"
+    assert "response too large" in run["error"]
+    event = conn.execute("SELECT event_type FROM source_friction_events").fetchone()
+    assert event["event_type"] == "blocked_response"
 
 
 class FakeAdapter:

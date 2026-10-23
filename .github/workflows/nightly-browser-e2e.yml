@@ -1,6 +1,7 @@
 name: nightly-browser-e2e
 
 on:
+  pull_request:
   push:
     paths:
       - ".github/workflows/nightly-browser-e2e.yml"
@@ -31,8 +32,13 @@ jobs:
       - name: Install Playwright Chromium
         run: uv run --with playwright python -m playwright install --with-deps chromium
       - name: Prepare test database directory
-        run: mkdir -p /tmp/ml-job-swarm
+        run: mkdir -p /tmp/ml-job-swarm /tmp/ml-job-swarm-artifacts
+      - name: Run deterministic browser regression
+        run: >-
+          uv run --with playwright pytest -q tests/test_browser_e2e.py
+          --basetemp=/tmp/ml-job-swarm-artifacts/deterministic
       - name: Run live browser smoke
+        if: ${{ github.event_name != 'pull_request' }}
         run: |
           mkdir -p /tmp/ml-job-swarm-artifacts
           uv run --with uvicorn --with playwright python scripts/live_e2e_smoke.py \

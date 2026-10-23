@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import io
+from email.message import Message
 from urllib.request import Request
 
 import pytest
 
 from ml_job_swarm.adapters import (
+    GreenhouseAdapter,
     MAX_FETCH_RESPONSE_BYTES,
     _SafeRedirectHandler,
     _read_url_request,
 )
-from ml_job_swarm.ingest import RefreshError
+from ml_job_swarm.ingest import JobSource, RefreshError
 from ml_job_swarm.source_policy import assert_safe_fetch_url
 
 
@@ -73,3 +75,28 @@ def test_read_url_request_rejects_oversized_response(monkeypatch):
         _read_url_request(Request("https://boards.greenhouse.io/example/jobs.json"))
 
     assert MAX_FETCH_RESPONSE_BYTES == 5 * 1024 * 1024
+
+
+@pytest.mark.parametrize("body_size", [63, 64, 65])
+def test_greenhouse_response_limit_boundary(monkeypatch, body_size):
+    from ml_job_swarm import adapters
+
+    monkeypatch.setattr(adapters, "MAX_GREENHOUSE_BOARD_RESPONSE_BYTES", 64)
+
+    class Opener:
+        def open(self, request, timeout=20):
+            payload = b'{"jobs": []}'
+            response = io.BytesIO(payload + b" " * (body_size - len(payload)))
+            response.headers = Message()
+            return response
+
+    monkeypatch.setattr(adapters, "_build_safe_fetch_opener", Opener)
+    source = JobSource(
+        id=1, company_id=1, url="https://boards.greenhouse.io/example",
+        source_type="greenhouse", policy_mode="allowed", review_status="reviewed",
+    )
+    if body_size <= 64:
+        assert GreenhouseAdapter().fetch_jobs(source) == []
+    else:
+        with pytest.raises(RefreshError, match="response too large"):
+            GreenhouseAdapter().fetch_jobs(source)
